@@ -28,25 +28,22 @@ export async function fetchSiteContent(url: string): Promise<SiteContent> {
 
     const html = await response.text();
     
-    // Extract basic information
     const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
     const title = titleMatch ? titleMatch[1].trim() : 'No title';
     
     const metaDescMatch = html.match(/<meta\s+name=["']description["'][^>]*content=["']([^"']+)["']/i);
     const metaDescription = metaDescMatch ? metaDescMatch[1] : undefined;
     
-    // Extract H1 tags
     const h1Matches = html.matchAll(/<h1[^>]*>([^<]+)<\/h1>/gi);
     const h1Tags = Array.from(h1Matches).map(m => m[1].trim()).filter(Boolean);
     
-    // Clean HTML to text (basic version)
     const text = html
       .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
       .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
       .replace(/<[^>]+>/g, ' ')
       .replace(/\s+/g, ' ')
       .trim()
-      .slice(0, 15000); // Limit to 15k chars for LLM context
+      .slice(0, 15000);
 
     return {
       url,
@@ -62,11 +59,28 @@ export async function fetchSiteContent(url: string): Promise<SiteContent> {
   }
 }
 
+export interface SubAgentResult {
+  name: string;
+  finding: string;
+  score: number;
+  details: string[];
+}
+
+export interface AgentAnalysis {
+  agent_name: string;
+  observations: string;
+  strengths: string[];
+  weaknesses: string[];
+  score: number;
+  subagent_results: SubAgentResult[];
+}
+
 export interface AnalysisSection {
   observations: string;
   strengths: string[];
   weaknesses: string[];
   score: number;
+  subagent_results?: SubAgentResult[];
 }
 
 export interface SiteAnalysis {
@@ -79,94 +93,221 @@ export interface SiteAnalysis {
   overall_score: number;
 }
 
-const ANALYSIS_PROMPT = `You are a hyperspecialized web benchmarking analyst. You will receive website content and must analyze it across 4 dimensions.
+// ============================================================================
+// VISUAL AESTHETICS AGENT (VAA)
+// Subagents: Color_Palette_Analyzer, Typo_Readability_Checker, Design_Trend_Evaluator
+// ============================================================================
 
-For EACH dimension, provide:
-1. Detailed observations (2-3 sentences)
-2. 2-3 specific strengths
-3. 1-2 specific weaknesses
-4. A score from 1-10 (be critical but fair)
+const VAA_PROMPT = `You are the VISUAL_AESTHETICS_AGENT (VAA), a hyperspecialized AI focused EXCLUSIVELY on visual design analysis.
 
-Scoring guidelines:
-- 9-10: Exceptional, industry-leading
-- 7-8: Strong, above average
-- 5-6: Adequate, meets basic expectations
-- 3-4: Below average, needs improvement
-- 1-2: Poor, requires major overhaul
+You command 3 subagents:
+1. COLOR_PALETTE_ANALYZER - Extracts and evaluates color schemes, contrast ratios, brand color consistency
+2. TYPO_READABILITY_CHECKER - Analyzes font families, sizes, line heights, heading hierarchy
+3. DESIGN_TREND_EVALUATOR - Assesses modernity, visual balance, whitespace usage, image quality
 
-DIMENSIONS TO ANALYZE:
+ANALYSIS PROTOCOL:
+- Analyze ONLY visual/aesthetic elements - ignore UX, content, or technical aspects
+- Each subagent must provide specific, measurable findings
+- Be critical but fair: most websites score 5-7, exceptional ones 8-9, only truly outstanding get 10
 
-1. Visual Design & Aesthetics
-   - Color palette coherence and brand alignment
-   - Typography hierarchy and readability
-   - Use of whitespace and visual balance
-   - Image quality and relevance
-   - Overall modernity and professionalism
-
-2. User Experience & Navigation
-   - Information architecture and menu structure
-   - Navigation clarity and depth
-   - Mobile responsiveness (inferred from structure)
-   - CTA visibility and effectiveness
-   - Perceived load speed and interaction patterns
-
-3. Content Quality & Storytelling
-   - Brand voice clarity and consistency
-   - Value proposition strength
-   - Message persuasiveness and engagement
-   - Content organization and hierarchy
-   - Professional credibility signals
-
-4. Technical Performance
-   - Page structure and semantic HTML
-   - SEO metadata quality (title, description, H1-H6)
-   - Inferred performance characteristics
-   - URL structure and optimization
-
-Return ONLY valid JSON in this exact format:
+Return ONLY valid JSON:
 {
-  "visual_design": {
-    "observations": "...",
-    "strengths": ["...", "..."],
-    "weaknesses": ["..."],
-    "score": 7
-  },
-  "user_experience": {
-    "observations": "...",
-    "strengths": ["...", "..."],
-    "weaknesses": ["..."],
-    "score": 6
-  },
-  "content_quality": {
-    "observations": "...",
-    "strengths": ["...", "..."],
-    "weaknesses": ["..."],
-    "score": 8
-  },
-  "technical_performance": {
-    "observations": "...",
-    "strengths": ["...", "..."],
-    "weaknesses": ["..."],
-    "score": 7
-  }
+  "observations": "2-3 sentences summarizing visual design quality",
+  "strengths": ["specific strength 1", "specific strength 2"],
+  "weaknesses": ["specific weakness 1"],
+  "score": 7,
+  "subagent_results": [
+    {
+      "name": "Color_Palette_Analyzer",
+      "finding": "Primary finding about colors",
+      "score": 7,
+      "details": ["Detail 1", "Detail 2"]
+    },
+    {
+      "name": "Typo_Readability_Checker",
+      "finding": "Primary finding about typography",
+      "score": 6,
+      "details": ["Detail 1", "Detail 2"]
+    },
+    {
+      "name": "Design_Trend_Evaluator",
+      "finding": "Primary finding about design trends",
+      "score": 8,
+      "details": ["Detail 1", "Detail 2"]
+    }
+  ]
 }`;
 
-export async function analyzeSiteWithAI(content: SiteContent): Promise<Omit<SiteAnalysis, 'name' | 'url' | 'overall_score'>> {
+// ============================================================================
+// UX NAVIGATION AGENT (UNA)
+// Subagents: Information_Architecture_Mapper, CTA_Effectiveness_Scorer, Responsive_Design_Inferrer
+// ============================================================================
+
+const UNA_PROMPT = `You are the UX_NAVIGATION_AGENT (UNA), a hyperspecialized AI focused EXCLUSIVELY on user experience and navigation analysis.
+
+You command 3 subagents:
+1. INFORMATION_ARCHITECTURE_MAPPER - Maps menu structure, navigation depth, content organization
+2. CTA_EFFECTIVENESS_SCORER - Evaluates call-to-action visibility, placement, persuasiveness
+3. RESPONSIVE_DESIGN_INFERRER - Infers mobile-friendliness from HTML structure, viewport meta, media queries
+
+ANALYSIS PROTOCOL:
+- Analyze ONLY UX/navigation elements - ignore visual design, content quality, or technical SEO
+- Each subagent must provide specific, measurable findings
+- Be critical but fair: most websites score 5-7, exceptional ones 8-9, only truly outstanding get 10
+
+Return ONLY valid JSON:
+{
+  "observations": "2-3 sentences summarizing UX quality",
+  "strengths": ["specific strength 1", "specific strength 2"],
+  "weaknesses": ["specific weakness 1"],
+  "score": 6,
+  "subagent_results": [
+    {
+      "name": "Information_Architecture_Mapper",
+      "finding": "Primary finding about site structure",
+      "score": 6,
+      "details": ["Detail 1", "Detail 2"]
+    },
+    {
+      "name": "CTA_Effectiveness_Scorer",
+      "finding": "Primary finding about CTAs",
+      "score": 7,
+      "details": ["Detail 1", "Detail 2"]
+    },
+    {
+      "name": "Responsive_Design_Inferrer",
+      "finding": "Primary finding about responsiveness",
+      "score": 5,
+      "details": ["Detail 1", "Detail 2"]
+    }
+  ]
+}`;
+
+// ============================================================================
+// CONTENT STORYTELLING AGENT (CSA)
+// Subagents: Brand_Voice_Validator, Thought_Leadership_Scrutinizer, Credibility_Evidence_Collector
+// ============================================================================
+
+const CSA_PROMPT = `You are the CONTENT_STORYTELLING_AGENT (CSA), a hyperspecialized AI focused EXCLUSIVELY on content quality and brand storytelling.
+
+You command 3 subagents:
+1. BRAND_VOICE_VALIDATOR - Analyzes tone consistency, messaging clarity, value proposition strength
+2. THOUGHT_LEADERSHIP_SCRUTINIZER - Evaluates expertise signals, unique insights, industry authority
+3. CREDIBILITY_EVIDENCE_COLLECTOR - Scans for social proof, testimonials, certifications, trust signals
+
+ANALYSIS PROTOCOL:
+- Analyze ONLY content/storytelling elements - ignore visual design, UX, or technical aspects
+- Each subagent must provide specific, measurable findings
+- Be critical but fair: most websites score 5-7, exceptional ones 8-9, only truly outstanding get 10
+
+Return ONLY valid JSON:
+{
+  "observations": "2-3 sentences summarizing content quality",
+  "strengths": ["specific strength 1", "specific strength 2"],
+  "weaknesses": ["specific weakness 1"],
+  "score": 7,
+  "subagent_results": [
+    {
+      "name": "Brand_Voice_Validator",
+      "finding": "Primary finding about brand voice",
+      "score": 7,
+      "details": ["Detail 1", "Detail 2"]
+    },
+    {
+      "name": "Thought_Leadership_Scrutinizer",
+      "finding": "Primary finding about thought leadership",
+      "score": 6,
+      "details": ["Detail 1", "Detail 2"]
+    },
+    {
+      "name": "Credibility_Evidence_Collector",
+      "finding": "Primary finding about credibility",
+      "score": 8,
+      "details": ["Detail 1", "Detail 2"]
+    }
+  ]
+}`;
+
+// ============================================================================
+// TECHNICAL PERFORMANCE AGENT (TPA)
+// Subagents: Page_Speed_Scorer, SEO_Metadata_Inspector, Content_Markup_Validator
+// ============================================================================
+
+const TPA_PROMPT = `You are the TECHNICAL_PERFORMANCE_AGENT (TPA), a hyperspecialized AI focused EXCLUSIVELY on technical SEO and performance analysis.
+
+You command 3 subagents:
+1. PAGE_SPEED_SCORER - Infers performance from code structure, resource hints, lazy loading
+2. SEO_METADATA_INSPECTOR - Validates title, meta description, H1-H6 hierarchy, schema.org
+3. CONTENT_MARKUP_VALIDATOR - Checks semantic HTML, accessibility hints, structured data
+
+ANALYSIS PROTOCOL:
+- Analyze ONLY technical/performance elements - ignore visual design, UX, or content quality
+- Each subagent must provide specific, measurable findings
+- Be critical but fair: most websites score 5-7, exceptional ones 8-9, only truly outstanding get 10
+
+Return ONLY valid JSON:
+{
+  "observations": "2-3 sentences summarizing technical quality",
+  "strengths": ["specific strength 1", "specific strength 2"],
+  "weaknesses": ["specific weakness 1"],
+  "score": 6,
+  "subagent_results": [
+    {
+      "name": "Page_Speed_Scorer",
+      "finding": "Primary finding about performance",
+      "score": 5,
+      "details": ["Detail 1", "Detail 2"]
+    },
+    {
+      "name": "SEO_Metadata_Inspector",
+      "finding": "Primary finding about SEO metadata",
+      "score": 7,
+      "details": ["Detail 1", "Detail 2"]
+    },
+    {
+      "name": "Content_Markup_Validator",
+      "finding": "Primary finding about markup",
+      "score": 6,
+      "details": ["Detail 1", "Detail 2"]
+    }
+  ]
+}`;
+
+// ============================================================================
+// AGENT EXECUTION FUNCTIONS
+// ============================================================================
+
+export type AgentType = 'VAA' | 'UNA' | 'CSA' | 'TPA';
+
+export interface AgentLogCallback {
+  (agentType: AgentType, subagentName: string, message: string): void;
+}
+
+async function runAgent(
+  agentType: AgentType,
+  prompt: string,
+  content: SiteContent,
+  logCallback?: AgentLogCallback
+): Promise<AnalysisSection> {
+  
   const contextPrompt = `
 Website: ${content.url}
 Title: ${content.title}
 Meta Description: ${content.metaDescription || 'None'}
 H1 Tags: ${content.h1Tags.join(', ') || 'None'}
 
-Content Preview (first 3000 chars):
-${content.text.slice(0, 3000)}
+HTML Structure Preview (first 2000 chars):
+${content.html.slice(0, 2000)}
 
-Analyze this website comprehensively.`;
+Text Content Preview (first 2000 chars):
+${content.text.slice(0, 2000)}
+
+Analyze this website according to your specialization.`;
 
   const completion = await openai.chat.completions.create({
     model: "gpt-4o-mini",
     messages: [
-      { role: "system", content: ANALYSIS_PROMPT },
+      { role: "system", content: prompt },
       { role: "user", content: contextPrompt }
     ],
     temperature: 0.7,
@@ -176,11 +317,43 @@ Analyze this website comprehensively.`;
   const result = JSON.parse(completion.choices[0].message.content || '{}');
   
   return {
-    visual_design: result.visual_design,
-    user_experience: result.user_experience,
-    content_quality: result.content_quality,
-    technical_performance: result.technical_performance,
+    observations: result.observations || '',
+    strengths: result.strengths || [],
+    weaknesses: result.weaknesses || [],
+    score: result.score || 5,
+    subagent_results: result.subagent_results || [],
   };
+}
+
+export interface ParallelAgentResults {
+  visual_design: AnalysisSection;
+  user_experience: AnalysisSection;
+  content_quality: AnalysisSection;
+  technical_performance: AnalysisSection;
+}
+
+export async function runAllAgentsInParallel(
+  content: SiteContent,
+  logCallback?: AgentLogCallback
+): Promise<ParallelAgentResults> {
+  
+  const [vaaResult, unaResult, csaResult, tpaResult] = await Promise.all([
+    runAgent('VAA', VAA_PROMPT, content, logCallback),
+    runAgent('UNA', UNA_PROMPT, content, logCallback),
+    runAgent('CSA', CSA_PROMPT, content, logCallback),
+    runAgent('TPA', TPA_PROMPT, content, logCallback),
+  ]);
+
+  return {
+    visual_design: vaaResult,
+    user_experience: unaResult,
+    content_quality: csaResult,
+    technical_performance: tpaResult,
+  };
+}
+
+export async function analyzeSiteWithAI(content: SiteContent): Promise<Omit<SiteAnalysis, 'name' | 'url' | 'overall_score'>> {
+  return await runAllAgentsInParallel(content);
 }
 
 export function calculateOverallScore(analysis: Omit<SiteAnalysis, 'name' | 'url' | 'overall_score'>): number {

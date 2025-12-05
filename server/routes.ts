@@ -3,11 +3,12 @@ import { createServer, type Server } from "http";
 import { z } from "zod";
 import { 
   fetchSiteContent, 
-  analyzeSiteWithAI, 
+  runAllAgentsInParallel,
   calculateOverallScore, 
   generateComparativeInsights,
   type SiteAnalysis,
-  type Report 
+  type Report,
+  type AnalysisSection 
 } from "./agent-engine";
 
 const analyzeRequestSchema = z.object({
@@ -20,7 +21,6 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
   
-  // Main analysis endpoint
   app.post("/api/analyze", async (req, res) => {
     try {
       const { clientUrl, competitorUrls } = analyzeRequestSchema.parse(req.body);
@@ -28,19 +28,12 @@ export async function registerRoutes(
       const allUrls = [clientUrl, ...competitorUrls];
       const analyses: SiteAnalysis[] = [];
 
-      // Process each URL
       for (const url of allUrls) {
         try {
-          // Fetch site content
           const content = await fetchSiteContent(url);
-          
-          // Analyze with AI
-          const analysis = await analyzeSiteWithAI(content);
-          
-          // Calculate overall score
+          const analysis = await runAllAgentsInParallel(content);
           const overall_score = calculateOverallScore(analysis);
           
-          // Extract domain name
           const domain = new URL(url).hostname.replace('www.', '').split('.')[0];
           const name = domain.charAt(0).toUpperCase() + domain.slice(1);
           
@@ -52,7 +45,6 @@ export async function registerRoutes(
           });
         } catch (error) {
           console.error(`Failed to analyze ${url}:`, error);
-          // Continue with other URLs even if one fails
         }
       }
 
@@ -62,8 +54,6 @@ export async function registerRoutes(
 
       const clientAnalysis = analyses[0];
       const competitorAnalyses = analyses.slice(1);
-
-      // Generate comparative insights
       const insights = await generateComparativeInsights(clientAnalysis, competitorAnalyses);
 
       const report: Report = {
@@ -83,12 +73,10 @@ export async function registerRoutes(
     }
   });
 
-  // Server-sent events endpoint for real-time progress
   app.post("/api/analyze-stream", async (req, res) => {
     try {
       const { clientUrl, competitorUrls } = analyzeRequestSchema.parse(req.body);
       
-      // Set up SSE headers
       res.setHeader('Content-Type', 'text/event-stream');
       res.setHeader('Cache-Control', 'no-cache');
       res.setHeader('Connection', 'keep-alive');
@@ -102,62 +90,113 @@ export async function registerRoutes(
 
       sendLog(`[Benchmarking_Manager] Initializing Distributed Agent Architecture...`);
       sendLog(`[Benchmarking_Manager] Target Scope: ${allUrls.length} domains queued.`);
+      sendLog(`[Benchmarking_Manager] 4 Specialized Agents ready: VAA, UNA, CSA, TPA`);
 
       for (const url of allUrls) {
         try {
+          const domain = new URL(url).hostname.replace('www.', '').split('.')[0];
+          const domainName = domain.charAt(0).toUpperCase() + domain.slice(1);
           const isClient = url === clientUrl;
           
-          sendLog(`\n[Scraping_Orchestrator] Targeted: ${url}`);
+          sendLog(`\n${'='.repeat(60)}`);
+          sendLog(`[Scraping_Orchestrator] Targeted: ${url}`);
           sendLog(`[Scraping_Orchestrator] > [Data_Extractor] Fetching raw DOM & Assets...`);
           
           const content = await fetchSiteContent(url);
           
-          sendLog(`[Scraping_Orchestrator] > [Metadata_Fetcher] Extracting meta tags & headers...`);
-          sendLog(`[Benchmarking_Manager] Context acquired. Distributing to Specialized Agents...`);
+          sendLog(`[Scraping_Orchestrator] > [Metadata_Fetcher] Title: "${content.title}"`);
+          if (content.metaDescription) {
+            sendLog(`[Scraping_Orchestrator] > [Metadata_Fetcher] Meta: "${content.metaDescription.slice(0, 80)}..."`);
+          }
+          sendLog(`[Scraping_Orchestrator] > [Data_Extractor] Extracted ${content.text.length} chars of content`);
           
-          sendLog(`[Visual_Aesthetics_Agent] Analyzing Design System...`);
-          sendLog(`[VAA] > [Color_Palette_Analyzer] Extracting dominant HSL values...`);
-          sendLog(`[VAA] > [Typo_Readability_Checker] validating font hierarchy (H1-H6)...`);
+          sendLog(`\n[Benchmarking_Manager] Dispatching 4 Agents in PARALLEL...`);
           
-          sendLog(`[UX_Navigation_Agent] Mapping User Journeys...`);
-          sendLog(`[UNA] > [Information_Architecture_Mapper] Building sitemap tree...`);
-          sendLog(`[UNA] > [CTA_Effectiveness_Scorer] Calculating button visibility contrast...`);
+          sendLog(`[Visual_Aesthetics_Agent] Starting analysis...`);
+          sendLog(`[UX_Navigation_Agent] Starting analysis...`);
+          sendLog(`[Content_Storytelling_Agent] Starting analysis...`);
+          sendLog(`[Technical_Performance_Agent] Starting analysis...`);
           
-          sendLog(`[Content_Storytelling_Agent] Evaluating Narrative...`);
-          sendLog(`[CSA] > [Brand_Voice_Validator] Checking tone consistency in 'About Us'...`);
-          sendLog(`[CSA] > [Credibility_Evidence_Collector] Scanning for social proof markers...`);
+          const analysis = await runAllAgentsInParallel(content);
           
-          sendLog(`[Technical_Performance_Agent] Auditing Infrastructure...`);
-          sendLog(`[TPA] > [Page_Speed_Scorer] Simulating First Contentful Paint...`);
-          sendLog(`[TPA] > [SEO_Metadata_Inspector] Validating schema.org implementation...`);
+          // Log VAA subagent results
+          sendLog(`\n[Visual_Aesthetics_Agent] COMPLETED - Score: ${analysis.visual_design.score}/10`);
+          if (analysis.visual_design.subagent_results) {
+            for (const sub of analysis.visual_design.subagent_results) {
+              sendLog(`  [VAA] > [${sub.name}] ${sub.finding} (${sub.score}/10)`);
+            }
+          }
           
-          const analysis = await analyzeSiteWithAI(content);
+          // Log UNA subagent results
+          sendLog(`\n[UX_Navigation_Agent] COMPLETED - Score: ${analysis.user_experience.score}/10`);
+          if (analysis.user_experience.subagent_results) {
+            for (const sub of analysis.user_experience.subagent_results) {
+              sendLog(`  [UNA] > [${sub.name}] ${sub.finding} (${sub.score}/10)`);
+            }
+          }
+          
+          // Log CSA subagent results
+          sendLog(`\n[Content_Storytelling_Agent] COMPLETED - Score: ${analysis.content_quality.score}/10`);
+          if (analysis.content_quality.subagent_results) {
+            for (const sub of analysis.content_quality.subagent_results) {
+              sendLog(`  [CSA] > [${sub.name}] ${sub.finding} (${sub.score}/10)`);
+            }
+          }
+          
+          // Log TPA subagent results
+          sendLog(`\n[Technical_Performance_Agent] COMPLETED - Score: ${analysis.technical_performance.score}/10`);
+          if (analysis.technical_performance.subagent_results) {
+            for (const sub of analysis.technical_performance.subagent_results) {
+              sendLog(`  [TPA] > [${sub.name}] ${sub.finding} (${sub.score}/10)`);
+            }
+          }
+          
           const overall_score = calculateOverallScore(analysis);
           
-          const domain = new URL(url).hostname.replace('www.', '').split('.')[0];
-          const name = domain.charAt(0).toUpperCase() + domain.slice(1);
-          
           analyses.push({
-            name: isClient ? `${name} (Client)` : name,
+            name: isClient ? `${domainName} (Client)` : domainName,
             url,
             ...analysis,
             overall_score,
           });
           
-          sendLog(`[Benchmarking_Manager] Aggregating Sub-Agent scores for ${url}... Done.`);
+          sendLog(`\n[Benchmarking_Manager] ${domainName} aggregated. Overall Score: ${overall_score}/10`);
+          
         } catch (error) {
           sendLog(`[ERROR] Failed to analyze ${url}. Skipping.`);
+          console.error(`Stream analysis error for ${url}:`, error);
         }
       }
 
-      sendLog(`\n[Benchmarking_Manager] Cross-referencing data across ${analyses.length} entities...`);
+      if (analyses.length === 0) {
+        sendLog(`[FATAL] No websites could be analyzed.`);
+        res.write(`data: ${JSON.stringify({ type: 'error', message: 'Failed to analyze any websites' })}\n\n`);
+        res.end();
+        return;
+      }
+
+      sendLog(`\n${'='.repeat(60)}`);
+      sendLog(`[Benchmarking_Manager] All ${analyses.length} domains analyzed.`);
+      sendLog(`[Comparative_Insights_Engine] Cross-referencing competitive data...`);
       
       const clientAnalysis = analyses[0];
       const competitorAnalyses = analyses.slice(1);
+      
+      sendLog(`[Comparative_Insights_Engine] Client baseline: ${clientAnalysis.overall_score}/10`);
+      for (const comp of competitorAnalyses) {
+        const diff = comp.overall_score - clientAnalysis.overall_score;
+        const diffStr = diff > 0 ? `+${diff.toFixed(1)}` : diff.toFixed(1);
+        sendLog(`[Comparative_Insights_Engine] vs ${comp.name}: ${comp.overall_score}/10 (${diffStr})`);
+      }
+      
       const insights = await generateComparativeInsights(clientAnalysis, competitorAnalyses);
 
-      sendLog(`[Benchmarking_Manager] Generating final comparative JSON structure...`);
-      sendLog(`[COMPLETE] Analysis Cycle Finished.`);
+      sendLog(`\n[Benchmarking_Manager] Generating strategic recommendations...`);
+      sendLog(`[Benchmarking_Manager] High Priority Items: ${insights.recommendations?.high_priority?.length || 0}`);
+      sendLog(`[Benchmarking_Manager] Medium Priority Items: ${insights.recommendations?.medium_priority?.length || 0}`);
+      sendLog(`[Benchmarking_Manager] Innovation Opportunities: ${insights.recommendations?.innovative_opportunities?.length || 0}`);
+      
+      sendLog(`\n[COMPLETE] Analysis Cycle Finished Successfully.`);
 
       const report: Report = {
         report_title: "Web Benchmarking Analysis Report",
@@ -166,7 +205,6 @@ export async function registerRoutes(
         ...insights,
       };
 
-      // Send final report
       res.write(`data: ${JSON.stringify({ type: 'complete', report })}\n\n`);
       res.end();
     } catch (error) {
