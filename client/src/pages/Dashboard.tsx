@@ -3,12 +3,11 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useForm, useFieldArray } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Trash2, Play, Globe, LayoutTemplate, Sparkles } from "lucide-react";
+import { Plus, Trash2, Play, Globe, LayoutTemplate, Sparkles, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Badge } from "@/components/ui/badge";
+import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
 import { TerminalLog } from "@/components/agent/Terminal";
 import { ReportView } from "@/components/agent/Report";
 import { simulateAgentAnalysis, Report } from "@/lib/mock-agent";
@@ -78,15 +77,14 @@ export default function Dashboard() {
         animate={{ opacity: step === "report" ? 0 : 1, height: step === "report" ? 0 : "auto", overflow: "hidden" }}
       >
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-mono tracking-wider uppercase">
-          <Sparkles className="w-3 h-3" />
-          AI-Powered Benchmarking
+          <Share2 className="w-3 h-3" />
+          Multi-Agent System v2.0
         </div>
         <h1 className="text-4xl md:text-6xl font-display font-bold tracking-tight text-foreground">
-          Web Benchmarking <br/> <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-blue-400">Analyst Agent</span>
+          Hyperspecialized <br/> <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-blue-400">Web Benchmarking</span>
         </h1>
         <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-          Deploy an autonomous agent to audit your digital presence against competitors. 
-          Analyzes Design, UX, Content, and Performance in real-time.
+          Deploy a coordinated swarm of specialized agents to audit Design, UX, Content, and Technical Performance with granular precision.
         </p>
       </motion.header>
 
@@ -103,9 +101,9 @@ export default function Dashboard() {
           >
             <Card className="border-border/50 shadow-2xl bg-card/50 backdrop-blur-sm">
               <CardHeader>
-                <CardTitle>Define Analysis Scope</CardTitle>
+                <CardTitle>Configure Agent Swarm</CardTitle>
                 <CardDescription>
-                  Enter the target URL and competitors to begin the autonomous audit cycle.
+                  Initialize the Orchestrator Agent by defining the target and competitor landscape.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -118,7 +116,7 @@ export default function Dashboard() {
                         <div className="p-1.5 rounded bg-primary/10 text-primary">
                           <LayoutTemplate className="w-4 h-4" />
                         </div>
-                        Client Website (Primary Target)
+                        Client Website (Target)
                       </div>
                       <FormField
                         control={form.control}
@@ -189,7 +187,7 @@ export default function Dashboard() {
 
                     <Button type="submit" className="w-full h-12 text-base font-medium shadow-primary/25 shadow-lg">
                       <Play className="w-4 h-4 mr-2 fill-current" />
-                      Deploy Agent & Start Analysis
+                      Deploy Agents
                     </Button>
                   </form>
                 </Form>
@@ -209,7 +207,7 @@ export default function Dashboard() {
           >
             <TerminalLog logs={logs} isProcessing={true} />
             <p className="mt-4 text-muted-foreground text-sm animate-pulse">
-              Agent is navigating targets autonomously. Please wait...
+              Orchestrator is distributing tasks to specialized sub-agents...
             </p>
           </motion.div>
         )}
