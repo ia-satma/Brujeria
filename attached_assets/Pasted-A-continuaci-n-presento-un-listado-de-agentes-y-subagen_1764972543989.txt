@@ -1,0 +1,57 @@
+A continuación, presento un listado de agentes y subagentes hiperespecializados, diseñados para trabajar en secuencia y abordar cada una de las cuatro áreas de análisis de manera granular.
+
+Arquitectura de Agentes Hiperespecializados para Benchmarking Web
+Esta arquitectura se divide en un Agente Orquestador (el principal) y cuatro Agentes Analistas que se apoyan en varios Subagentes de Datos y Evaluación.
+
+1. Agente Orquestador: Benchmarking_Manager
+Este es el agente principal que recibe la solicitud, distribuye las tareas y consolida el informe final.
+
+
+Tarea Clave	Nombre del Agente	Función y Objetivo
+Orquestación Principal	Benchmarking_Manager	Recibe la lista de URLs. Llama secuencialmente al Scraping_Orchestrator para obtener los datos de cada sitio, distribuye el contexto a los 4 Agentes Analistas, y ensambla todos los resultados en el esquema JSON final.
+Gestión de Datos	Scraping_Orchestrator	Asegura la correcta ejecución de la herramienta de web scraping. Llama al Data_Extractor y al Metadata_Fetcher. Maneja la limpieza de texto y la estandarización del contexto antes de pasarlo a los analistas.
+2. Agente Analista de Diseño y Estética: Visual_Aesthetics_Agent (VAA)
+Se enfoca en el aspecto visual y el look & feel.
+
+
+Tarea Clave	Nombre del Subagente	Función y Objetivo
+Análisis de Color	Color_Palette_Analyzer	Identifica la paleta de colores dominante (primarios, secundarios, acentos) y evalúa su coherencia con el tono de la marca (ej. la sobriedad legal de VWyS).
+Análisis de Tipografía	Typo_Readability_Checker	Identifica la tipografía principal y secundaria. Evalúa la legibilidad y el uso jerárquico (H1, H2, Cuerpo) y su adecuación al sector de lujo.
+Evaluación de Modernidad	Design_Trend_Evaluator	Compara el diseño actual con las tendencias de diseño web del sector legal (premium). Puntúa la modernidad y la calidad percibida de las imágenes.
+3. Agente Analista de Experiencia de Usuario: UX_Navigation_Agent (UNA)
+Se enfoca en la usabilidad, la navegación y el flujo del usuario.
+
+
+Tarea Clave	Nombre del Subagente	Función y Objetivo
+Estructura y Flujo	Information_Architecture_Mapper	Analiza el menú principal y el sitemap (inferido del scraping) para mapear la Arquitectura de la Información. Identifica la profundidad de la navegación.
+Efectividad de Conversión	CTA_Effectiveness_Scorer	Identifica los Call-to-Action (CTAs) clave. Evalúa su visibilidad, claridad, ubicación estratégica y si están alineados con los objetivos de negocio de la firma (ej. captar leads o llamadas).
+Evaluación Móvil	Responsive_Design_Inferrer	Basado en la estructura del código y los metadatos, infiere la calidad de la optimización móvil y señala posibles problemas de viewport o elementos ocultos.
+4. Agente Analista de Contenido y Narrativa: Content_Storytelling_Agent (CSA)
+Se enfoca en la calidad del mensaje, el tono y la narrativa de la marca.
+
+
+Tarea Clave	Nombre del Subagente	Función y Objetivo
+Tono y Voz	Brand_Voice_Validator	Analiza las secciones 'Acerca de' y 'Misión' para validar la coherencia del tono (formal, innovador, tradicional) y la propuesta de valor principal.
+Liderazgo de Pensamiento	Thought_Leadership_Scrutinizer	Evalúa la sección de Insights o Publicaciones. Mide la frecuencia, la calidad y la relevancia del contenido para la audiencia C-Suite (clientes potenciales de alto valor).
+Credibilidad y Pruebas	Credibility_Evidence_Collector	Identifica el uso de pruebas sociales (rankings, testimonios, premios, logos de clientes). Puntúa la capacidad del sitio para generar confianza y credibilidad profesional.
+5. Agente Analista Técnico: Technical_Performance_Agent (TPA)
+Se enfoca en la infraestructura subyacente y la optimización para motores de búsqueda.
+
+
+Tarea Clave	Nombre del Subagente	Función y Objetivo
+Análisis de Velocidad	Page_Speed_Scorer	Mide la velocidad de carga percibida (porción visible) y la velocidad total (del scraping). Señala elementos pesados (imágenes grandes, videos).
+Optimización SEO	SEO_Metadata_Inspector	Extrae y evalúa la estructura SEO on-page: Title Tags, Meta Descriptions, uso de keywords en los encabezados (H1, H2).
+Estructura de Contenido	Content_Markup_Validator	Verifica la correcta implementación de la jerarquía de encabezados (H1, H2, H3) y la calidad de las URL (si son amigables o paramétricas).
+Resumen del Proceso para el Agente Autónomo
+Benchmarking_Manager inicia.
+Llama a Scraping_Orchestrator para obtener datos de la primera URL.
+El Scraping_Orchestrator utiliza sus subagentes para extraer y limpiar el contexto.
+El Benchmarking_Manager inyecta el contexto en paralelo a:
+Visual_Aesthetics_Agent (VAA)
+UX_Navigation_Agent (UNA)
+Content_Storytelling_Agent (CSA)
+Technical_Performance_Agent (TPA)
+Cada Agente Analista utiliza sus subagentes especializados para generar sus observaciones, fortalezas, debilidades y su Score (1-10).
+El Benchmarking_Manager consolida los resultados de todos los sitios en el JSON final y genera las secciones comparativas y las recomendaciones priorizadas.
+Entrega final del JSON.
+Esta estructura asegura que cada parte del análisis se realice con la hiperespecialización solicitada, maximizando la precisión del informe final.
