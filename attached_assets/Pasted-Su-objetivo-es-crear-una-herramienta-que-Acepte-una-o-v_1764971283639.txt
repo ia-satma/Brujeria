@@ -1,0 +1,95 @@
+Su objetivo es crear una herramienta que:
+
+Acepte una o varias URLs.
+Ejecute un análisis/auditoría completo sin interrupciones ni validaciones intermedias.
+Solo regrese al usuario una vez que el análisis haya finalizado, independientemente del número de sitios web.
+Esto requiere traducir el detallado "Web Design and Development Benchmarking Analysis" a un conjunto de instrucciones de código y lógica de agente.
+
+A continuación, presento la estructura del prompt y el marco de acción para el desarrollo de su Agente de Análisis Web:
+
+Estructura para el Agente Autónomo de Análisis Web
+El agente debe operar bajo un marco que integre las instrucciones de análisis con la lógica de ejecución del web scraping y la generación del informe estructurado.
+
+1. Instrucción Principal (El Prompt del Agente)
+Este texto será la directriz central que guiará la IA del agente en Replit:
+
+markdown
+# AGENTE: Web Benchmarking Analyst (Autónomo)
+
+## MISIÓN PRINCIPAL
+Realizar un análisis comparativo exhaustivo (benchmarking) de una lista de sitios web proporcionados, enfocándose en Diseño, UX, Contenido y Rendimiento Técnico. El proceso debe ser completamente autónomo, desde el scraping hasta la generación del informe final estructurado en formato JSON.
+
+## PARÁMETROS DE ENTRADA
+El agente recibirá un objeto de configuración con las URLs a analizar:
+- `client_url`: URL del sitio web del cliente (para el informe principal).
+- `competitor_urls`: Array de URLs de los competidores.
+- `analysis_areas`: Array de áreas de enfoque (ver abajo).
+
+## ÁREAS DE ANÁLISIS (CORE)
+Para cada URL, el agente debe evaluar y documentar los siguientes puntos:
+
+1.  **Visual Design & Aesthetics (Look & Feel):** Esquema de color, tipografía, uso de espacio, jerarquía visual, calidad y relevancia de imágenes, modernidad general.
+2.  **User Experience & Navigation (UX):** Estructura de navegación, *mobile responsiveness* (inferido del contenido/estructura), percepción de velocidad, efectividad de CTAs.
+3.  **Content Quality & Storytelling:** Claridad del mensaje, voz de marca, capacidad de persuasión/engagement, organización, credibilidad profesional.
+4.  **Technical Performance (Inferencia):** Velocidad de carga (perceptual), optimización móvil (estructura/diseño), inferencia de SEO (metadatos visibles, estructura Hx).
+
+## METODOLOGÍA DE PUNTUACIÓN
+Asignar una puntuación (1-10) a cada área, usando el siguiente criterio:
+- 9-10: Excepcional, líder en la industria.
+- 7-8: Fuerte, por encima del promedio.
+- 5-6: Adecuado, cumple expectativas básicas.
+- 3-4: Bajo promedio, necesita mejora.
+- 1-2: Pobre, requiere revisión total.
+
+## REGLAS DE EJECUCIÓN AUTÓNOMA
+1.  **Iteración:** Procesar cada URL en la lista (`client_url` y `competitor_urls`) secuencialmente.
+2.  **Scraping:** Utilizar la herramienta de *web scraping* disponible en la infraestructura para obtener el contenido de texto y metadatos de las páginas principales (Home, About, Services/Practice, Contact).
+3.  **Análisis:** Generar observaciones detalladas, fortalezas, debilidades y la puntuación (1-10) para cada una de las 4 áreas por sitio.
+4.  **Entrega Única:** El agente no debe interrumpir el proceso. El único entregable es el informe final completo.
+
+### 2. Estructura de Salida (Output JSON Schema)
+
+El agente debe forzar la salida a este esquema JSON para garantizar la compatibilidad con el sistema de Satma:
+
+```json
+{
+  "report_title": "Web Benchmarking Analysis Report",
+  "client_website_analysis": {
+    "name": "[Nombre de la Firma Cliente]",
+    "url": "[URL Cliente]",
+    "visual_design": {"observations": "...", "strengths": ["..."], "weaknesses": ["..."], "score": 0},
+    "user_experience": {"observations": "...", "strengths": ["..."], "weaknesses": ["..."], "score": 0},
+    "content_quality": {"observations": "...", "strengths": ["..."], "weaknesses": ["..."], "score": 0},
+    "technical_performance": {"observations": "...", "strengths": ["..."], "weaknesses": ["..."], "score": 0},
+    "overall_score": 0
+  },
+  "competitor_analyses": [
+    {
+      "name": "[Nombre Competidor 1]",
+      "url": "[URL Competidor 1]",
+      "visual_design": {"observations": "...", "strengths": ["..."], "weaknesses": ["..."], "score": 0},
+      // ... (Resto de las 4 áreas)
+      "overall_score": 0
+    }
+    // Repetir estructura para cada competidor
+  ],
+  "comparative_analysis": {
+    "strengths_relative": ["..."],
+    "weaknesses_relative": ["..."],
+    "industry_best_practices": ["..."],
+    "emerging_trends": ["..."]
+  },
+  "recommendations": {
+    "high_priority": ["..."],
+    "medium_priority": ["..."],
+    "innovative_opportunities": ["..."]
+  },
+  "implementation_notes": ["..."]
+}
+3. Consideraciones Técnicas (Infraestructura RAG/Toon)
+Para el desarrollo en Replit, la infraestructura debe asegurar:
+
+Módulo de Scraping Confiable: Un módulo que maneje las peticiones HTTP y extraiga el texto principal y metadatos de forma robusta (similar a cómo opera Firecrawl o headless browsers).
+Lógica de Bucle (Iteración): El código debe iterar sobre la lista de URLs, llamando a la función de scraping para cada una y almacenando los resultados intermedios.
+Contexto de la IA: Los resultados del scraping (el contenido de cada sitio) deben inyectarse como contexto de recuperación (RAG) a la IA para que pueda realizar el análisis y la puntuación de manera informada.
+Manejo de Errores: Incluir lógica para reintentar el scraping si falla y registrar las URLs que no pudieron ser procesadas en una sección de "Notas de Limitación".
