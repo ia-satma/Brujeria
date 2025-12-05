@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useForm, useFieldArray } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Trash2, Play, Globe, LayoutTemplate, Sparkles, Share2 } from "lucide-react";
+import { Plus, Trash2, Play, Globe, LayoutTemplate, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,7 +11,7 @@ import { Form, FormControl, FormField, FormItem, FormMessage } from "@/component
 import { TerminalLog } from "@/components/agent/Terminal";
 import { AgentNetwork } from "@/components/agent/AgentNetwork";
 import { ReportView } from "@/components/agent/Report";
-import { simulateAgentAnalysis, Report } from "@/lib/mock-agent";
+import type { Report } from "@/lib/mock-agent";
 
 const formSchema = z.object({
   clientUrl: z.string().url({ message: "Please enter a valid URL" }),
@@ -28,6 +28,7 @@ export default function Dashboard() {
   const [step, setStep] = useState<"input" | "processing" | "report">("input");
   const [logs, setLogs] = useState<string[]>([]);
   const [report, setReport] = useState<Report | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -45,20 +46,59 @@ export default function Dashboard() {
   const onSubmit = async (data: FormValues) => {
     setStep("processing");
     setLogs([]);
+    setError(null);
     
     const competitorUrls = data.competitorUrls.map(c => c.value);
     
     try {
-      const result = await simulateAgentAnalysis(
-        data.clientUrl, 
-        competitorUrls, 
-        (log) => setLogs(prev => [...prev, log])
-      );
-      setReport(result);
-      await new Promise(r => setTimeout(r, 1000)); // pause to read "Success"
-      setStep("report");
-    } catch (error) {
-      setLogs(prev => [...prev, "[FATAL ERROR] Analysis failed due to internal timeout."]);
+      const response = await fetch('/api/analyze-stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientUrl: data.clientUrl,
+          competitorUrls,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Analysis request failed');
+      }
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+
+      if (!reader) {
+        throw new Error('No response stream');
+      }
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = JSON.parse(line.slice(6));
+            
+            if (data.type === 'log') {
+              setLogs(prev => [...prev, data.message]);
+            } else if (data.type === 'complete') {
+              setReport(data.report);
+              await new Promise(r => setTimeout(r, 1000));
+              setStep("report");
+            } else if (data.type === 'error') {
+              setError(data.message);
+              setLogs(prev => [...prev, `[FATAL ERROR] ${data.message}`]);
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Analysis error:', err);
+      setError('Failed to complete analysis. Please try again.');
+      setLogs(prev => [...prev, "[FATAL ERROR] Analysis failed. Please check your URLs and try again."]);
     }
   };
 
@@ -66,13 +106,13 @@ export default function Dashboard() {
     setStep("input");
     setReport(null);
     setLogs([]);
+    setError(null);
     form.reset();
   };
 
   return (
     <div className="min-h-screen bg-background bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-secondary via-background to-background p-6 md:p-12 font-sans">
       
-      {/* Header - Only show in Input/Processing modes, collapse in Report mode */}
       <motion.header 
         className="max-w-4xl mx-auto mb-12 text-center space-y-4"
         animate={{ opacity: step === "report" ? 0 : 1, height: step === "report" ? 0 : "auto", overflow: "hidden" }}
@@ -91,7 +131,6 @@ export default function Dashboard() {
 
       <AnimatePresence mode="wait">
         
-        {/* INPUT STEP */}
         {step === "input" && (
           <motion.div
             key="input"
@@ -111,7 +150,6 @@ export default function Dashboard() {
                 <Form {...form}>
                   <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
                     
-                    {/* Client URL */}
                     <div className="space-y-4">
                       <div className="flex items-center gap-2 text-sm font-medium text-foreground/80">
                         <div className="p-1.5 rounded bg-primary/10 text-primary">
@@ -133,7 +171,6 @@ export default function Dashboard() {
                       />
                     </div>
 
-                    {/* Competitor URLs */}
                     <div className="space-y-4">
                        <div className="flex items-center justify-between text-sm font-medium text-foreground/80">
                         <div className="flex items-center gap-2">
@@ -197,7 +234,6 @@ export default function Dashboard() {
           </motion.div>
         )}
 
-        {/* PROCESSING STEP */}
         {step === "processing" && (
           <motion.div
             key="processing"
@@ -207,14 +243,23 @@ export default function Dashboard() {
             className="flex flex-col items-center w-full max-w-4xl mx-auto"
           >
             <AgentNetwork logs={logs} />
-            <TerminalLog logs={logs} isProcessing={true} />
-            <p className="mt-4 text-muted-foreground text-sm animate-pulse">
-              Orchestrator is distributing tasks to specialized sub-agents...
-            </p>
+            <TerminalLog logs={logs} isProcessing={!error} />
+            {!error && (
+              <p className="mt-4 text-muted-foreground text-sm animate-pulse">
+                Orchestrator is distributing tasks to specialized sub-agents...
+              </p>
+            )}
+            {error && (
+              <div className="mt-4 flex gap-2">
+                <p className="text-red-400 text-sm">{error}</p>
+                <Button variant="outline" size="sm" onClick={reset}>
+                  Try Again
+                </Button>
+              </div>
+            )}
           </motion.div>
         )}
 
-        {/* REPORT STEP */}
         {step === "report" && report && (
           <motion.div
              key="report"
