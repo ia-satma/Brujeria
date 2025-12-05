@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
 import { TerminalLog } from "@/components/agent/Terminal";
+import { AgentNetwork } from "@/components/agent/AgentNetwork";
 import { ReportView } from "@/components/agent/Report";
 import { simulateAgentAnalysis, Report } from "@/lib/mock-agent";
 
@@ -203,8 +204,9 @@ export default function Dashboard() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="flex flex-col items-center"
+            className="flex flex-col items-center w-full max-w-4xl mx-auto"
           >
+            <AgentNetwork logs={logs} />
             <TerminalLog logs={logs} isProcessing={true} />
             <p className="mt-4 text-muted-foreground text-sm animate-pulse">
               Orchestrator is distributing tasks to specialized sub-agents...
