@@ -71,26 +71,35 @@ export default function Dashboard() {
         throw new Error('No response stream');
       }
 
+      let buffer = '';
+      
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n');
+        buffer += decoder.decode(value, { stream: true });
+        
+        const lines = buffer.split('\n\n');
+        buffer = lines.pop() || '';
 
         for (const line of lines) {
           if (line.startsWith('data: ')) {
-            const data = JSON.parse(line.slice(6));
-            
-            if (data.type === 'log') {
-              setLogs(prev => [...prev, data.message]);
-            } else if (data.type === 'complete') {
-              setReport(data.report);
-              await new Promise(r => setTimeout(r, 1000));
-              setStep("report");
-            } else if (data.type === 'error') {
-              setError(data.message);
-              setLogs(prev => [...prev, `[FATAL ERROR] ${data.message}`]);
+            try {
+              const jsonStr = line.slice(6);
+              const data = JSON.parse(jsonStr);
+              
+              if (data.type === 'log') {
+                setLogs(prev => [...prev, data.message]);
+              } else if (data.type === 'complete') {
+                setReport(data.report);
+                await new Promise(r => setTimeout(r, 1000));
+                setStep("report");
+              } else if (data.type === 'error') {
+                setError(data.message);
+                setLogs(prev => [...prev, `[FATAL ERROR] ${data.message}`]);
+              }
+            } catch (parseError) {
+              console.warn('Failed to parse SSE data:', parseError);
             }
           }
         }
