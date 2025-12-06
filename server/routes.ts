@@ -16,6 +16,8 @@ import {
   type Report,
   type LogCallback
 } from "./agent-engine";
+import { storage } from "./storage";
+import { generateReportPDF } from "./pdf-generator";
 
 const analyzeRequestSchema = z.object({
   clientUrl: z.string().url(),
@@ -265,11 +267,27 @@ export async function registerRoutes(
         completion_criteria: completionCriteria,
       };
 
+      const serializedReport = JSON.parse(JSON.stringify(report));
+
+      let savedReportId: number | null = null;
+      try {
+        const savedReport = await storage.saveReport({
+          clientUrl,
+          competitorUrls,
+          reportData: serializedReport,
+        });
+        savedReportId = savedReport.id;
+        sendLog(`\n[Benchmarking_Manager] Report saved with ID: ${savedReportId}`);
+      } catch (saveError) {
+        console.error("Failed to save report:", saveError);
+        sendLog(`\n[WARNING] Report could not be saved to database. PDF download will not be available.`);
+      }
+
       if (keepaliveInterval) {
         clearInterval(keepaliveInterval);
       }
       
-      res.write(`data: ${JSON.stringify({ type: 'complete', report })}\n\n`);
+      res.write(`data: ${JSON.stringify({ type: 'complete', report: serializedReport, reportId: savedReportId })}\n\n`);
       res.end();
     } catch (error) {
       console.error("Stream analysis error:", error);
@@ -298,6 +316,34 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Invalid request", details: error.errors });
       }
       res.status(500).json({ error: "Failed to extract domains" });
+    }
+  });
+
+  app.get("/api/reports/:id/pdf", async (req, res) => {
+    try {
+      const reportId = parseInt(req.params.id);
+      
+      if (isNaN(reportId)) {
+        return res.status(400).json({ error: "Invalid report ID" });
+      }
+      
+      const savedReport = await storage.getReport(reportId);
+      
+      if (!savedReport) {
+        return res.status(404).json({ error: "Report not found" });
+      }
+      
+      const reportData = savedReport.reportData as Report;
+      const doc = generateReportPDF(reportData);
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="benchmarking-report-${reportId}.pdf"`);
+      
+      doc.pipe(res);
+      doc.end();
+    } catch (error) {
+      console.error("PDF generation error:", error);
+      res.status(500).json({ error: "Failed to generate PDF" });
     }
   });
 

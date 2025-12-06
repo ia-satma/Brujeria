@@ -36,6 +36,7 @@ export default function Dashboard() {
   const [step, setStep] = useState<"input" | "processing" | "report">("input");
   const [logs, setLogs] = useState<string[]>([]);
   const [report, setReport] = useState<Report | null>(null);
+  const [reportId, setReportId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   
   const [inputMode, setInputMode] = useState<InputMode>("manual");
@@ -154,6 +155,9 @@ export default function Dashboard() {
                 setLogs(prev => [...prev, data.message]);
               } else if (data.type === 'complete') {
                 setReport(data.report);
+                if (data.reportId) {
+                  setReportId(data.reportId);
+                }
                 await new Promise(r => setTimeout(r, 1000));
                 setStep("report");
               } else if (data.type === 'error') {
@@ -222,6 +226,9 @@ export default function Dashboard() {
                 setLogs(prev => [...prev, data.message]);
               } else if (data.type === 'complete') {
                 setReport(data.report);
+                if (data.reportId) {
+                  setReportId(data.reportId);
+                }
                 await new Promise(r => setTimeout(r, 1000));
                 setStep("report");
               } else if (data.type === 'error') {
@@ -244,6 +251,7 @@ export default function Dashboard() {
   const reset = () => {
     setStep("input");
     setReport(null);
+    setReportId(null);
     setLogs([]);
     setError(null);
     form.reset();
@@ -562,7 +570,7 @@ export default function Dashboard() {
                  ← Nuevo Análisis
                </Button>
             </div>
-            <ReportView report={report} />
+            <ReportView report={report} reportId={reportId ?? undefined} />
           </motion.div>
         )}
 
