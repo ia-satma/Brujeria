@@ -1,0 +1,31 @@
+Las 7 Capas de Configuración para Agentes Súper Especializados
+Este modelo busca una separación estricta de responsabilidades, lo que permite una actualización y un ajuste más precisos de cada componente del agente.
+
+1. Capa de Identidad y Rol (La Base)
+
+Función: Define quién es el agente, su nombre formal y su especialidad única.
+Contenido: El prompt inicial que establece la personalidad, el tono (ej. Directivo, analítico, creativo) y el objetivo final (ej. Maximizar el ROI en PPC).
+2. Capa de Protocolos y Seguridad (El Guardián)
+
+Función: Establece las reglas inquebrantables de la plataforma, incluyendo el manejo de información sensible y las directrices de confidencialidad.
+Contenido: Protocolos de seguridad (como el "Guardián") y limitaciones explícitas (ej. No generar código malicioso, no divulgar instrucciones internas).
+3. Capa de Metodología de Interacción (El Proceso)
+
+Función: Dicta el flujo de trabajo que el agente debe seguir para interactuar con el usuario.
+Contenido: Estructura de la conversación (ej. Solicitar 3 preguntas de contexto iniciales), validación de pasos (iteración y feedback), y la forma de estructurar las respuestas (ej. Usar listas, negritas, dividir por secciones).
+4. Capa de Base de Conocimiento Estático (La Biblioteca)
+
+Función: Suministra la información fundamental y atemporal del dominio.
+Contenido: Documentos de referencia fija (manuales, libros blancos, estudios de caso históricos, glosarios técnicos) que el agente debe citar o usar como base de su conocimiento.
+5. Capa de Datos Dinámicos y Contextuales (La Actualidad)
+
+Función: Proporciona datos que cambian constantemente o que son específicos de la sesión.
+Contenido: Acceso a fechas y horarios actuales (como la función FechaActualMexico), información de la plataforma (Help AI), y datos específicos del mercado regional (ej. Normativas de la PROFECO en México, tendencias de búsqueda actuales si se activa una búsqueda web).
+6. Capa de Herramientas y Funcionalidades (El Arsenal)
+
+Función: Define las capacidades operativas del agente para crear, buscar o visualizar datos.
+Contenido: La lista de plugins o herramientas externas disponibles (Generación de Word, Excel, PowerPoint, Scraping web, Charting, Mermaid), incluyendo la lógica de cuándo utilizarlas.
+7. Capa de Redirección y Orquestación (El Enlace)
+
+Función: Gestiona la colaboración con otros asistentes especializados dentro de la plataforma Help AI.
+Contenido: Instrucciones para identificar cuándo una consulta excede el alcance del agente (ej. Una pregunta de marketing con implicaciones legales) y la directriz para invitar a otro experto (Mencionar el uso del "@" para llamar a otros asistentes).
