@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useForm, useFieldArray } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Trash2, Play, Globe, LayoutTemplate, Share2, Search, Link, Loader2 } from "lucide-react";
+import { Plus, Trash2, Play, Globe, LayoutTemplate, Share2, Search, Link, Loader2, Activity } from "lucide-react";
+import { Link as WouterLink } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -269,6 +270,14 @@ export default function Dashboard() {
         className="max-w-4xl mx-auto mb-12 text-center space-y-4"
         animate={{ opacity: step === "report" ? 0 : 1, height: step === "report" ? 0 : "auto", overflow: "hidden" }}
       >
+        <div className="flex justify-end mb-4">
+          <WouterLink href="/performance">
+            <Button variant="outline" size="sm" className="gap-2" data-testid="link-performance-dashboard">
+              <Activity className="w-4 h-4" />
+              Monitoreo de Agentes
+            </Button>
+          </WouterLink>
+        </div>
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-mono tracking-wider uppercase">
           <Share2 className="w-3 h-3" />
           Sistema Multi-Agente v2.0
