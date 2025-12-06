@@ -346,6 +346,44 @@ ${config.metacognition.limitationsAwareness.declaredLimitations.map(l => `- ${l}
     
     return validation;
   }
+
+  async syncToPCloud(): Promise<{ synced: string[]; failed: string[] }> {
+    const { getConfigPersistenceService } = await import("./config-persistence");
+    const persistence = getConfigPersistenceService();
+    return persistence.syncAllConfigs(this.configs);
+  }
+
+  async saveConfigToPCloud(agentName: RegisteredAgentName): Promise<{ success: boolean; error?: string }> {
+    const config = this.getConfig(agentName);
+    if (!config) {
+      return { success: false, error: `Config not found for ${agentName}` };
+    }
+    
+    const { getConfigPersistenceService } = await import("./config-persistence");
+    const persistence = getConfigPersistenceService();
+    const result = await persistence.saveAgentConfig(agentName, config);
+    return { success: result.success, error: result.error };
+  }
+
+  async loadConfigFromPCloud(agentName: RegisteredAgentName): Promise<{ success: boolean; error?: string }> {
+    const { getConfigPersistenceService } = await import("./config-persistence");
+    const persistence = getConfigPersistenceService();
+    const stored = await persistence.loadAgentConfig(agentName);
+    
+    if (!stored) {
+      return { success: false, error: `No config found in pCloud for ${agentName}` };
+    }
+
+    const validation = this.validateConfig(stored.config);
+    if (!validation.valid) {
+      return { success: false, error: `Invalid config from pCloud: ${validation.errors.join(", ")}` };
+    }
+
+    this.configs.set(agentName, stored.config);
+    console.log(`[ConfigRegistry] Loaded config from pCloud for ${agentName} (v${stored.metadata.version})`);
+    
+    return { success: true };
+  }
 }
 
 let registryInstance: AgentConfigRegistry | null = null;

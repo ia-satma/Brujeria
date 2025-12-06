@@ -593,5 +593,120 @@ export async function registerRoutes(
     }
   });
 
+  // ============================================================================
+  // CONFIG MANAGEMENT API
+  // ============================================================================
+
+  app.get("/api/config/stats", async (req, res) => {
+    try {
+      const { getAgentConfigRegistry } = await import("./config/agent-config-registry");
+      const registry = getAgentConfigRegistry();
+      const stats = registry.getStats();
+      
+      res.json({
+        success: true,
+        stats,
+      });
+    } catch (error) {
+      console.error("Config stats error:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
+  app.post("/api/config/sync", async (req, res) => {
+    try {
+      const { getAgentConfigRegistry } = await import("./config/agent-config-registry");
+      const registry = getAgentConfigRegistry();
+      const result = await registry.syncToPCloud();
+      
+      res.json({
+        success: true,
+        synced: result.synced,
+        failed: result.failed,
+      });
+    } catch (error) {
+      console.error("Config sync error:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
+  app.get("/api/config/agents/:agentName", async (req, res) => {
+    try {
+      const { getAgentConfigRegistry } = await import("./config/agent-config-registry");
+      const registry = getAgentConfigRegistry();
+      const agentName = req.params.agentName as any;
+      
+      const config = registry.getConfig(agentName);
+      if (!config) {
+        return res.status(404).json({
+          success: false,
+          error: `Agent config not found: ${agentName}`,
+        });
+      }
+
+      res.json({
+        success: true,
+        config,
+      });
+    } catch (error) {
+      console.error("Get config error:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
+  app.post("/api/config/agents/:agentName/save", async (req, res) => {
+    try {
+      const { getAgentConfigRegistry } = await import("./config/agent-config-registry");
+      const registry = getAgentConfigRegistry();
+      const agentName = req.params.agentName as any;
+      
+      const result = await registry.saveConfigToPCloud(agentName);
+      
+      res.json({
+        success: result.success,
+        error: result.error,
+      });
+    } catch (error) {
+      console.error("Save config error:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
+  app.get("/api/config/system-prompt/:agentName", async (req, res) => {
+    try {
+      const { getAgentConfigRegistry } = await import("./config/agent-config-registry");
+      const registry = getAgentConfigRegistry();
+      const agentName = req.params.agentName as any;
+      const industry = req.query.industry as string | undefined;
+      
+      const systemPrompt = registry.buildSystemPrompt(agentName, industry);
+      
+      res.json({
+        success: true,
+        agentName,
+        industry: industry || null,
+        systemPrompt,
+      });
+    } catch (error) {
+      console.error("Get system prompt error:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
   return httpServer;
 }
