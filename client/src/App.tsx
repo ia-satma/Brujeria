@@ -24,7 +24,10 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
-        <Router />
+        <main id="main-content" role="main" tabIndex={-1}>
+          <Router />
+        </main>
+        <div aria-live="polite" aria-atomic="true" className="sr-only" id="announcer"></div>
       </TooltipProvider>
     </QueryClientProvider>
   );

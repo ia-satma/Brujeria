@@ -129,9 +129,18 @@ function ProgressStages({ logs }: { logs: string[] }) {
         <span className="text-muted-foreground">Analysis Progress</span>
         <span className="font-mono text-primary">{Math.round(progressPercent)}%</span>
       </div>
-      <Progress value={progressPercent} className="h-2" data-testid="progress-analysis" />
+      <Progress 
+        value={progressPercent} 
+        className="h-2" 
+        data-testid="progress-analysis"
+        aria-valuenow={Math.round(progressPercent)}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label={`Analysis progress: ${Math.round(progressPercent)} percent complete`}
+      />
+      <span className="sr-only">Analysis is {Math.round(progressPercent)} percent complete</span>
       
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mt-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mt-4">
         {stageStatuses.map((stage, index) => (
           <motion.div
             key={stage.id}
@@ -145,6 +154,7 @@ function ProgressStages({ logs }: { logs: string[] }) {
               stage.status === "pending" && "bg-muted/30 border-border/50"
             )}
             data-testid={`stage-${stage.id}`}
+            aria-label={`${stage.label}: ${stage.status === "active" ? "in progress" : stage.status === "completed" ? "completed" : "pending"}`}
           >
             <div className="flex flex-col items-center gap-2 text-center">
               <div className={cn(
@@ -158,11 +168,11 @@ function ProgressStages({ logs }: { logs: string[] }) {
                     animate={{ rotate: 360 }}
                     transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
                   >
-                    <Loader2 className="w-5 h-5" />
+                    <Loader2 className="w-5 h-5" aria-hidden="true" />
                   </motion.div>
                 )}
-                {stage.status === "completed" && <CheckCircle2 className="w-5 h-5" />}
-                {stage.status === "pending" && <stage.icon className="w-5 h-5" />}
+                {stage.status === "completed" && <CheckCircle2 className="w-5 h-5" aria-hidden="true" />}
+                {stage.status === "pending" && <stage.icon className="w-5 h-5" aria-hidden="true" />}
               </div>
               <div>
                 <p className={cn(
@@ -222,28 +232,35 @@ function AgentActivityFeed({ logs }: { logs: string[] }) {
   };
 
   return (
-    <ScrollArea className="h-[300px]" data-testid="container-activity-feed">
-      <div className="space-y-2 p-1">
-        {recentLogs.map((log, i) => {
-          const Icon = getAgentIcon(log);
-          return (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.02 }}
-              className={cn(
-                "flex items-start gap-2 p-2 rounded-md border text-xs font-mono",
-                getLogStyle(log)
-              )}
-            >
-              <Icon className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
-              <span className="break-all">{log}</span>
-            </motion.div>
-          );
-        })}
-      </div>
-    </ScrollArea>
+    <div 
+      role="log" 
+      aria-label="Agent activity log stream" 
+      aria-live="polite"
+      aria-atomic="false"
+    >
+      <ScrollArea className="h-[300px]" data-testid="container-activity-feed">
+        <div className="space-y-2 p-1">
+          {recentLogs.map((log, i) => {
+            const Icon = getAgentIcon(log);
+            return (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.02 }}
+                className={cn(
+                  "flex items-start gap-2 p-2 rounded-md border text-xs font-mono",
+                  getLogStyle(log)
+                )}
+              >
+                <Icon className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" aria-hidden="true" />
+                <span className="break-all">{log}</span>
+              </motion.div>
+            );
+          })}
+        </div>
+      </ScrollArea>
+    </div>
   );
 }
 
@@ -255,7 +272,7 @@ function ReportSkeleton() {
         <Skeleton className="h-6 w-24" />
       </div>
       
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {[1, 2, 3, 4].map((i) => (
           <Card key={i} className="bg-muted/20">
             <CardContent className="p-4 space-y-3">
@@ -330,10 +347,10 @@ function LiveMetrics({ logs }: { logs: string[] }) {
   };
 
   return (
-    <div className="grid grid-cols-3 gap-4" data-testid="container-live-metrics">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4" data-testid="container-live-metrics">
       <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 border border-border/50">
         <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
-          <Clock className="w-5 h-5 text-primary" />
+          <Clock className="w-5 h-5 text-primary" aria-hidden="true" />
         </div>
         <div>
           <p className="text-xs text-muted-foreground">Elapsed Time</p>
@@ -345,7 +362,7 @@ function LiveMetrics({ logs }: { logs: string[] }) {
       
       <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 border border-border/50">
         <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center">
-          <Bot className="w-5 h-5 text-emerald-400" />
+          <Bot className="w-5 h-5 text-emerald-400" aria-hidden="true" />
         </div>
         <div>
           <p className="text-xs text-muted-foreground">Active Agents</p>
@@ -357,7 +374,7 @@ function LiveMetrics({ logs }: { logs: string[] }) {
       
       <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 border border-border/50">
         <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center">
-          <Zap className="w-5 h-5 text-blue-400" />
+          <Zap className="w-5 h-5 text-blue-400" aria-hidden="true" />
         </div>
         <div>
           <p className="text-xs text-muted-foreground">Log Events</p>
@@ -380,17 +397,21 @@ export function AnalysisConsole({ logs, isProcessing, error }: AnalysisConsolePr
       <LiveMetrics logs={logs} />
       
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3 bg-muted/30">
-          <TabsTrigger value="overview" data-testid="tab-overview">
-            <Activity className="w-4 h-4 mr-2" />
+        <TabsList 
+          className="grid w-full grid-cols-3 bg-muted/30 min-h-[44px]" 
+          role="tablist" 
+          aria-label="Analysis console navigation"
+        >
+          <TabsTrigger value="overview" data-testid="tab-overview" className="min-h-[44px]">
+            <Activity className="w-4 h-4 mr-2" aria-hidden="true" />
             Activity
           </TabsTrigger>
-          <TabsTrigger value="agents" data-testid="tab-agents">
-            <Bot className="w-4 h-4 mr-2" />
+          <TabsTrigger value="agents" data-testid="tab-agents" className="min-h-[44px]">
+            <Bot className="w-4 h-4 mr-2" aria-hidden="true" />
             Agents
           </TabsTrigger>
-          <TabsTrigger value="preview" data-testid="tab-preview">
-            <BarChart3 className="w-4 h-4 mr-2" />
+          <TabsTrigger value="preview" data-testid="tab-preview" className="min-h-[44px]">
+            <BarChart3 className="w-4 h-4 mr-2" aria-hidden="true" />
             Preview
           </TabsTrigger>
         </TabsList>
@@ -399,11 +420,15 @@ export function AnalysisConsole({ logs, isProcessing, error }: AnalysisConsolePr
           <TabsContent value="overview" className="m-0">
             <div className="p-4">
               <div className="flex items-center gap-2 mb-4">
-                <Activity className="w-4 h-4 text-primary" />
+                <Activity className="w-4 h-4 text-primary" aria-hidden="true" />
                 <h3 className="font-medium">Real-Time Activity Feed</h3>
                 {isProcessing && (
-                  <Badge variant="outline" className="ml-auto animate-pulse">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 mr-2" />
+                  <Badge 
+                    variant="outline" 
+                    className="ml-auto animate-pulse"
+                    aria-label="Analysis is currently running and processing live data"
+                  >
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 mr-2" aria-hidden="true" />
                     Live
                   </Badge>
                 )}
@@ -415,7 +440,7 @@ export function AnalysisConsole({ logs, isProcessing, error }: AnalysisConsolePr
           <TabsContent value="agents" className="m-0">
             <div className="p-4">
               <div className="flex items-center gap-2 mb-4">
-                <Bot className="w-4 h-4 text-primary" />
+                <Bot className="w-4 h-4 text-primary" aria-hidden="true" />
                 <h3 className="font-medium">Agent Network Status</h3>
               </div>
               <AgentStatusGrid logs={logs} />
@@ -425,9 +450,13 @@ export function AnalysisConsole({ logs, isProcessing, error }: AnalysisConsolePr
           <TabsContent value="preview" className="m-0">
             <div className="p-4">
               <div className="flex items-center gap-2 mb-4">
-                <BarChart3 className="w-4 h-4 text-primary" />
+                <BarChart3 className="w-4 h-4 text-primary" aria-hidden="true" />
                 <h3 className="font-medium">Report Preview</h3>
-                <Badge variant="secondary" className="ml-auto">
+                <Badge 
+                  variant="secondary" 
+                  className="ml-auto"
+                  aria-label="Report is currently being generated"
+                >
                   Generating...
                 </Badge>
               </div>
@@ -498,7 +527,7 @@ function AgentStatusGrid({ logs }: { logs: string[] }) {
   ];
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 gap-4" data-testid="container-agent-grid">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" data-testid="container-agent-grid">
       {agents.map((agent) => {
         const isActive = logs.some(log => log.includes(`[${agent.id}]`));
         const agentLogs = logs.filter(log => log.includes(`[${agent.id}]`));
@@ -515,6 +544,7 @@ function AgentStatusGrid({ logs }: { logs: string[] }) {
               isActive ? colorStyle.active : "bg-muted/20 border-border/50"
             )}
             data-testid={`agent-status-${agent.id}`}
+            aria-label={`${agent.label}: ${isActive ? "active with " + agentLogs.length + " events" : "waiting"}`}
           >
             <div className="flex items-center gap-3">
               <div className={cn(
@@ -524,7 +554,7 @@ function AgentStatusGrid({ logs }: { logs: string[] }) {
                 <agent.icon className={cn(
                   "w-5 h-5",
                   isActive ? colorStyle.text : "text-muted-foreground"
-                )} />
+                )} aria-hidden="true" />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
@@ -535,7 +565,10 @@ function AgentStatusGrid({ logs }: { logs: string[] }) {
                     {agent.label}
                   </p>
                   {isActive && (
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    <span 
+                      className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" 
+                      aria-hidden="true"
+                    />
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground truncate">

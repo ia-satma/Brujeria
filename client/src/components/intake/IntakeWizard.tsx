@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useForm, useFieldArray } from "react-hook-form";
 import { z } from "zod";
@@ -66,11 +66,17 @@ export function IntakeWizard({ onSubmit }: IntakeWizardProps) {
   const [clientUrl, setClientUrl] = useState("");
   const [competitorUrls, setCompetitorUrls] = useState<string[]>([]);
   const [inputMethod, setInputMethod] = useState<"manual" | "discover">("manual");
+  const [focusedDomainIndex, setFocusedDomainIndex] = useState<number>(-1);
+  const hasMountedRef = useRef(false);
   
   const [portfolioUrl, setPortfolioUrl] = useState("");
   const [extractedDomains, setExtractedDomains] = useState<ExtractedDomain[]>([]);
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractError, setExtractError] = useState<string | null>(null);
+
+  const stepHeadingRef = useRef<HTMLHeadingElement>(null);
+  const domainListRef = useRef<HTMLDivElement>(null);
+  const domainItemRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   const step1Form = useForm<Step1Values>({
     resolver: zodResolver(step1Schema),
@@ -89,6 +95,53 @@ export function IntakeWizard({ onSubmit }: IntakeWizardProps) {
     name: "competitorUrls",
     control: step2Form.control,
   });
+
+  useEffect(() => {
+    if (!hasMountedRef.current) {
+      hasMountedRef.current = true;
+      return;
+    }
+    const timer = setTimeout(() => {
+      if (stepHeadingRef.current) {
+        stepHeadingRef.current.focus();
+      }
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [currentStep]);
+
+  useEffect(() => {
+    if (focusedDomainIndex >= 0 && domainItemRefs.current[focusedDomainIndex]) {
+      domainItemRefs.current[focusedDomainIndex]?.focus();
+    }
+  }, [focusedDomainIndex]);
+
+  const handleDomainKeyDown = useCallback((event: React.KeyboardEvent, index: number) => {
+    const domainsCount = extractedDomains.length;
+    
+    switch (event.key) {
+      case "ArrowDown":
+        event.preventDefault();
+        setFocusedDomainIndex((prev) => (prev + 1) % domainsCount);
+        break;
+      case "ArrowUp":
+        event.preventDefault();
+        setFocusedDomainIndex((prev) => (prev - 1 + domainsCount) % domainsCount);
+        break;
+      case "Enter":
+      case " ":
+        event.preventDefault();
+        toggleDomainSelection(index);
+        break;
+      case "Home":
+        event.preventDefault();
+        setFocusedDomainIndex(0);
+        break;
+      case "End":
+        event.preventDefault();
+        setFocusedDomainIndex(domainsCount - 1);
+        break;
+    }
+  }, [extractedDomains.length]);
 
   const handleStep1Submit = (data: Step1Values) => {
     setClientUrl(data.clientUrl);
@@ -133,6 +186,7 @@ export function IntakeWizard({ onSubmit }: IntakeWizardProps) {
       const domains: string[] = data.domains || [];
 
       setExtractedDomains(domains.map((url) => ({ url, selected: true })));
+      setFocusedDomainIndex(0);
     } catch (err) {
       console.error("Domain extraction error:", err);
       setExtractError("Error extracting domains. Please check the URL and try again.");
@@ -176,35 +230,62 @@ export function IntakeWizard({ onSubmit }: IntakeWizardProps) {
     }),
   };
 
+  const getStepAnnouncement = () => {
+    const step = steps.find(s => s.id === currentStep);
+    return step ? `Step ${currentStep} of ${steps.length}: ${step.title}` : '';
+  };
+
   return (
     <div className="max-w-2xl mx-auto">
+      <div 
+        className="sr-only" 
+        aria-live="polite" 
+        aria-atomic="true"
+        data-testid="step-announcement"
+      >
+        {getStepAnnouncement()}
+      </div>
+
       <div className="mb-8" data-testid="wizard-progress">
-        <div className="flex items-center justify-between relative">
-          <div className="absolute top-5 left-0 right-0 h-0.5 bg-border -z-10" />
+        <div 
+          className="flex items-center justify-between relative"
+          role="list"
+          aria-label="Wizard progress"
+        >
+          <div className="absolute top-[22px] left-0 right-0 h-0.5 bg-border -z-10" />
           <div
-            className="absolute top-5 left-0 h-0.5 bg-primary transition-all duration-500 -z-10"
+            className="absolute top-[22px] left-0 h-0.5 bg-primary transition-all duration-500 -z-10"
             style={{ width: `${((currentStep - 1) / (steps.length - 1)) * 100}%` }}
           />
           {steps.map((step) => (
             <div
               key={step.id}
               className="flex flex-col items-center gap-2"
+              role="listitem"
+              aria-current={currentStep === step.id ? "step" : undefined}
               data-testid={`wizard-step-${step.id}`}
             >
               <div
                 className={cn(
-                  "w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-300",
+                  "w-11 h-11 rounded-full flex items-center justify-center border-2 transition-all duration-300",
                   currentStep > step.id
                     ? "bg-primary border-primary text-primary-foreground"
                     : currentStep === step.id
                     ? "bg-background border-primary text-primary"
                     : "bg-background border-muted-foreground/30 text-muted-foreground"
                 )}
+                aria-label={
+                  currentStep > step.id 
+                    ? `Step ${step.id}: ${step.title} - Completed` 
+                    : currentStep === step.id 
+                    ? `Step ${step.id}: ${step.title} - Current step` 
+                    : `Step ${step.id}: ${step.title} - Upcoming`
+                }
               >
                 {currentStep > step.id ? (
-                  <Check className="w-5 h-5" />
+                  <Check className="w-5 h-5" aria-hidden="true" />
                 ) : (
-                  <span className="font-semibold">{step.id}</span>
+                  <span className="font-semibold" aria-hidden="true">{step.id}</span>
                 )}
               </div>
               <div className="text-center hidden sm:block">
@@ -236,9 +317,13 @@ export function IntakeWizard({ onSubmit }: IntakeWizardProps) {
               transition={{ duration: 0.3, ease: "easeInOut" }}
             >
               <CardHeader>
-                <CardTitle className="flex items-center gap-3">
+                <CardTitle 
+                  className="flex items-center gap-3"
+                  ref={stepHeadingRef}
+                  tabIndex={-1}
+                >
                   <div className="p-2 rounded-lg bg-primary/10 text-primary">
-                    <LayoutTemplate className="w-5 h-5" />
+                    <LayoutTemplate className="w-5 h-5" aria-hidden="true" />
                   </div>
                   Enter Your Client Website
                 </CardTitle>
@@ -254,18 +339,23 @@ export function IntakeWizard({ onSubmit }: IntakeWizardProps) {
                       name="clientUrl"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-foreground/80">Website URL</FormLabel>
+                          <FormLabel className="text-foreground/80" id="client-url-label">Website URL</FormLabel>
                           <FormControl>
                             <div className="relative">
-                              <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                              <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
                               <Input
                                 placeholder="https://your-website.com"
                                 className="font-mono text-sm pl-10 h-12"
                                 data-testid="input-wizard-client-url"
+                                aria-labelledby="client-url-label"
+                                aria-describedby="client-url-description"
                                 {...field}
                               />
                             </div>
                           </FormControl>
+                          <p id="client-url-description" className="sr-only">
+                            Enter the full URL of your client website including https://
+                          </p>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -274,11 +364,11 @@ export function IntakeWizard({ onSubmit }: IntakeWizardProps) {
                     <div className="flex justify-end">
                       <Button
                         type="submit"
-                        className="gap-2"
+                        className="gap-2 min-h-[44px]"
                         data-testid="button-wizard-step1-next"
                       >
                         Next Step
-                        <ArrowRight className="w-4 h-4" />
+                        <ArrowRight className="w-4 h-4" aria-hidden="true" />
                       </Button>
                     </div>
                   </form>
@@ -298,9 +388,13 @@ export function IntakeWizard({ onSubmit }: IntakeWizardProps) {
               transition={{ duration: 0.3, ease: "easeInOut" }}
             >
               <CardHeader>
-                <CardTitle className="flex items-center gap-3">
+                <CardTitle 
+                  className="flex items-center gap-3"
+                  ref={stepHeadingRef}
+                  tabIndex={-1}
+                >
                   <div className="p-2 rounded-lg bg-amber-500/10 text-amber-500">
-                    <Globe className="w-5 h-5" />
+                    <Globe className="w-5 h-5" aria-hidden="true" />
                   </div>
                   Add Competitor Websites
                 </CardTitle>
@@ -309,16 +403,19 @@ export function IntakeWizard({ onSubmit }: IntakeWizardProps) {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="flex gap-2 p-1 bg-muted/30 rounded-lg">
+                <div className="flex gap-2 p-1 bg-muted/30 rounded-lg" role="tablist" aria-label="Input method selection">
                   <Button
                     type="button"
                     variant={inputMethod === "manual" ? "default" : "ghost"}
                     size="sm"
                     onClick={() => setInputMethod("manual")}
-                    className="flex-1"
+                    className="flex-1 min-h-[44px]"
                     data-testid="toggle-wizard-manual-mode"
+                    role="tab"
+                    aria-selected={inputMethod === "manual"}
+                    aria-controls="manual-panel"
                   >
-                    <LayoutTemplate className="w-4 h-4 mr-2" />
+                    <LayoutTemplate className="w-4 h-4 mr-2" aria-hidden="true" />
                     Manual Entry
                   </Button>
                   <Button
@@ -326,10 +423,13 @@ export function IntakeWizard({ onSubmit }: IntakeWizardProps) {
                     variant={inputMethod === "discover" ? "default" : "ghost"}
                     size="sm"
                     onClick={() => setInputMethod("discover")}
-                    className="flex-1"
+                    className="flex-1 min-h-[44px]"
                     data-testid="toggle-wizard-discover-mode"
+                    role="tab"
+                    aria-selected={inputMethod === "discover"}
+                    aria-controls="discover-panel"
                   >
-                    <Search className="w-4 h-4 mr-2" />
+                    <Search className="w-4 h-4 mr-2" aria-hidden="true" />
                     Auto-Discover
                   </Button>
                 </div>
@@ -337,26 +437,30 @@ export function IntakeWizard({ onSubmit }: IntakeWizardProps) {
                 {inputMethod === "manual" ? (
                   <Form {...step2Form}>
                     <form
+                      id="manual-panel"
+                      role="tabpanel"
+                      aria-labelledby="toggle-wizard-manual-mode"
                       onSubmit={step2Form.handleSubmit(handleStep2Submit)}
                       className="space-y-6"
                     >
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
-                          <Label className="text-foreground/80">Competitor URLs</Label>
+                          <Label className="text-foreground/80" id="competitor-urls-label">Competitor URLs</Label>
                           <Button
                             type="button"
                             variant="ghost"
                             size="sm"
                             onClick={() => append({ value: "" })}
-                            className="h-8 text-xs hover:bg-muted gap-1"
+                            className="h-8 min-h-[44px] text-xs hover:bg-muted gap-1"
                             data-testid="button-wizard-add-competitor"
+                            aria-label="Add another competitor URL field"
                           >
-                            <Plus className="w-3 h-3" />
+                            <Plus className="w-3 h-3" aria-hidden="true" />
                             Add More
                           </Button>
                         </div>
 
-                        <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
+                        <div className="space-y-3 max-h-64 overflow-y-auto pr-1" role="group" aria-labelledby="competitor-urls-label">
                           {fields.map((field, index) => (
                             <FormField
                               key={field.id}
@@ -367,11 +471,12 @@ export function IntakeWizard({ onSubmit }: IntakeWizardProps) {
                                   <div className="flex gap-2">
                                     <FormControl>
                                       <div className="relative flex-1">
-                                        <Link className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                        <Link className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
                                         <Input
                                           placeholder={`https://competitor-${index + 1}.com`}
-                                          className="font-mono text-sm pl-10"
+                                          className="font-mono text-sm pl-10 h-12"
                                           data-testid={`input-wizard-competitor-${index}`}
+                                          aria-label={`Competitor ${index + 1} URL`}
                                           {...field}
                                         />
                                       </div>
@@ -382,10 +487,11 @@ export function IntakeWizard({ onSubmit }: IntakeWizardProps) {
                                         variant="outline"
                                         size="icon"
                                         onClick={() => remove(index)}
-                                        className="shrink-0 text-muted-foreground hover:text-destructive"
+                                        className="shrink-0 text-muted-foreground hover:text-destructive min-h-[44px] min-w-[44px]"
                                         data-testid={`button-wizard-remove-competitor-${index}`}
+                                        aria-label={`Remove competitor ${index + 1}`}
                                       >
-                                        <Trash2 className="w-4 h-4" />
+                                        <Trash2 className="w-4 h-4" aria-hidden="true" />
                                       </Button>
                                     )}
                                   </div>
@@ -402,39 +508,46 @@ export function IntakeWizard({ onSubmit }: IntakeWizardProps) {
                           type="button"
                           variant="outline"
                           onClick={goBack}
-                          className="gap-2"
+                          className="gap-2 min-h-[44px]"
                           data-testid="button-wizard-step2-back"
                         >
-                          <ArrowLeft className="w-4 h-4" />
+                          <ArrowLeft className="w-4 h-4" aria-hidden="true" />
                           Back
                         </Button>
                         <Button
                           type="submit"
-                          className="gap-2"
+                          className="gap-2 min-h-[44px]"
                           data-testid="button-wizard-step2-next"
                         >
                           Review
-                          <ArrowRight className="w-4 h-4" />
+                          <ArrowRight className="w-4 h-4" aria-hidden="true" />
                         </Button>
                       </div>
                     </form>
                   </Form>
                 ) : (
-                  <div className="space-y-6">
+                  <div 
+                    id="discover-panel" 
+                    role="tabpanel" 
+                    aria-labelledby="toggle-wizard-discover-mode"
+                    className="space-y-6"
+                  >
                     <div className="space-y-3">
-                      <Label className="text-foreground/80">Portfolio / Agency URL</Label>
-                      <p className="text-xs text-muted-foreground">
+                      <Label className="text-foreground/80" id="portfolio-url-label">Portfolio / Agency URL</Label>
+                      <p className="text-xs text-muted-foreground" id="portfolio-url-description">
                         Enter a portfolio or agency URL to automatically discover competitor websites.
                       </p>
                       <div className="flex gap-2">
                         <div className="relative flex-1">
-                          <Link className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                          <Link className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
                           <Input
                             value={portfolioUrl}
                             onChange={(e) => setPortfolioUrl(e.target.value)}
                             placeholder="https://agency-portfolio.com/works"
-                            className="font-mono text-sm pl-10"
+                            className="font-mono text-sm pl-10 h-12"
                             data-testid="input-wizard-portfolio-url"
+                            aria-labelledby="portfolio-url-label"
+                            aria-describedby="portfolio-url-description"
                           />
                         </div>
                         <Button
@@ -442,12 +555,14 @@ export function IntakeWizard({ onSubmit }: IntakeWizardProps) {
                           variant="secondary"
                           onClick={handleDiscoverCompetitors}
                           disabled={!portfolioUrl || isExtracting}
+                          className="min-h-[44px]"
                           data-testid="button-wizard-discover"
+                          aria-label={isExtracting ? "Discovering domains..." : "Discover competitor domains"}
                         >
                           {isExtracting ? (
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" aria-hidden="true" />
                           ) : (
-                            <Search className="w-4 h-4 mr-2" />
+                            <Search className="w-4 h-4 mr-2" aria-hidden="true" />
                           )}
                           Discover
                         </Button>
@@ -455,8 +570,13 @@ export function IntakeWizard({ onSubmit }: IntakeWizardProps) {
                     </div>
 
                     {extractError && (
-                      <div className="flex items-center gap-2 text-sm text-red-400" data-testid="text-wizard-extract-error">
-                        <AlertCircle className="w-4 h-4" />
+                      <div 
+                        className="flex items-center gap-2 text-sm text-red-400" 
+                        data-testid="text-wizard-extract-error"
+                        role="alert"
+                        aria-live="assertive"
+                      >
+                        <AlertCircle className="w-4 h-4" aria-hidden="true" />
                         {extractError}
                       </div>
                     )}
@@ -464,30 +584,50 @@ export function IntakeWizard({ onSubmit }: IntakeWizardProps) {
                     {extractedDomains.length > 0 && (
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium text-foreground/80">
+                          <span className="text-sm font-medium text-foreground/80" id="discovered-domains-label">
                             Discovered Domains
                           </span>
-                          <Badge variant="secondary">
+                          <Badge variant="secondary" aria-live="polite">
                             {extractedDomains.filter((d) => d.selected).length} selected
                           </Badge>
                         </div>
-                        <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
+                        <div 
+                          ref={domainListRef}
+                          className="space-y-2 max-h-48 overflow-y-auto pr-2"
+                          role="listbox"
+                          aria-labelledby="discovered-domains-label"
+                          aria-multiselectable="true"
+                          tabIndex={0}
+                          onFocus={() => {
+                            if (focusedDomainIndex < 0 && extractedDomains.length > 0) {
+                              setFocusedDomainIndex(0);
+                            }
+                          }}
+                        >
                           {extractedDomains.map((domain, index) => (
                             <div
                               key={domain.url}
+                              ref={(el) => { domainItemRefs.current[index] = el; }}
                               className={cn(
-                                "flex items-center gap-3 p-3 rounded-lg transition-colors cursor-pointer",
+                                "flex items-center gap-3 p-3 rounded-lg transition-colors cursor-pointer min-h-[44px]",
                                 domain.selected
                                   ? "bg-primary/10 border border-primary/30"
-                                  : "bg-muted/30 hover:bg-muted/50"
+                                  : "bg-muted/30 hover:bg-muted/50",
+                                focusedDomainIndex === index && "ring-2 ring-primary ring-offset-2 ring-offset-background"
                               )}
                               onClick={() => toggleDomainSelection(index)}
+                              onKeyDown={(e) => handleDomainKeyDown(e, index)}
                               data-testid={`domain-item-${index}`}
+                              role="option"
+                              aria-selected={domain.selected}
+                              tabIndex={focusedDomainIndex === index ? 0 : -1}
                             >
                               <Checkbox
                                 checked={domain.selected}
                                 onCheckedChange={() => toggleDomainSelection(index)}
                                 data-testid={`checkbox-wizard-domain-${index}`}
+                                tabIndex={-1}
+                                aria-hidden="true"
                               />
                               <span
                                 className="font-mono text-sm text-foreground/80 truncate flex-1"
@@ -496,11 +636,14 @@ export function IntakeWizard({ onSubmit }: IntakeWizardProps) {
                                 {domain.url}
                               </span>
                               {domain.selected && (
-                                <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />
+                                <CheckCircle2 className="w-4 h-4 text-primary shrink-0" aria-hidden="true" />
                               )}
                             </div>
                           ))}
                         </div>
+                        <p className="text-xs text-muted-foreground" aria-live="polite">
+                          Use arrow keys to navigate, Enter or Space to toggle selection
+                        </p>
                       </div>
                     )}
 
@@ -509,20 +652,20 @@ export function IntakeWizard({ onSubmit }: IntakeWizardProps) {
                         type="button"
                         variant="outline"
                         onClick={goBack}
-                        className="gap-2"
+                        className="gap-2 min-h-[44px]"
                         data-testid="button-wizard-discover-back"
                       >
-                        <ArrowLeft className="w-4 h-4" />
+                        <ArrowLeft className="w-4 h-4" aria-hidden="true" />
                         Back
                       </Button>
                       <Button
                         onClick={handleDiscoverSubmit}
                         disabled={extractedDomains.filter((d) => d.selected).length < 1}
-                        className="gap-2"
+                        className="gap-2 min-h-[44px]"
                         data-testid="button-wizard-discover-next"
                       >
                         Review
-                        <ArrowRight className="w-4 h-4" />
+                        <ArrowRight className="w-4 h-4" aria-hidden="true" />
                       </Button>
                     </div>
                   </div>
@@ -542,9 +685,13 @@ export function IntakeWizard({ onSubmit }: IntakeWizardProps) {
               transition={{ duration: 0.3, ease: "easeInOut" }}
             >
               <CardHeader>
-                <CardTitle className="flex items-center gap-3">
+                <CardTitle 
+                  className="flex items-center gap-3"
+                  ref={stepHeadingRef}
+                  tabIndex={-1}
+                >
                   <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-500">
-                    <Check className="w-5 h-5" />
+                    <Check className="w-5 h-5" aria-hidden="true" />
                   </div>
                   Review Your Analysis
                 </CardTitle>
@@ -556,7 +703,7 @@ export function IntakeWizard({ onSubmit }: IntakeWizardProps) {
                 <div className="space-y-4">
                   <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
                     <div className="flex items-center gap-2 text-sm font-medium text-primary mb-2">
-                      <LayoutTemplate className="w-4 h-4" />
+                      <LayoutTemplate className="w-4 h-4" aria-hidden="true" />
                       Client Website (Target)
                     </div>
                     <p className="font-mono text-sm text-foreground break-all" data-testid="text-review-client-url">
@@ -566,21 +713,21 @@ export function IntakeWizard({ onSubmit }: IntakeWizardProps) {
 
                   <div className="p-4 rounded-lg bg-amber-500/5 border border-amber-500/20">
                     <div className="flex items-center gap-2 text-sm font-medium text-amber-500 mb-3">
-                      <Globe className="w-4 h-4" />
+                      <Globe className="w-4 h-4" aria-hidden="true" />
                       Competitor Websites ({competitorUrls.length})
                     </div>
-                    <div className="space-y-2 max-h-40 overflow-y-auto">
+                    <ul className="space-y-2 max-h-40 overflow-y-auto" aria-label="List of competitor websites">
                       {competitorUrls.map((url, index) => (
-                        <div
+                        <li
                           key={index}
                           className="flex items-center gap-2 text-sm"
                           data-testid={`text-review-competitor-${index}`}
                         >
-                          <Circle className="w-2 h-2 text-amber-500 fill-current" />
+                          <Circle className="w-2 h-2 text-amber-500 fill-current" aria-hidden="true" />
                           <span className="font-mono text-foreground/80 break-all">{url}</span>
-                        </div>
+                        </li>
                       ))}
-                    </div>
+                    </ul>
                   </div>
                 </div>
 
@@ -599,18 +746,18 @@ export function IntakeWizard({ onSubmit }: IntakeWizardProps) {
                     type="button"
                     variant="outline"
                     onClick={goBack}
-                    className="gap-2"
+                    className="gap-2 min-h-[44px]"
                     data-testid="button-wizard-step3-back"
                   >
-                    <ArrowLeft className="w-4 h-4" />
+                    <ArrowLeft className="w-4 h-4" aria-hidden="true" />
                     Back
                   </Button>
                   <Button
                     onClick={handleFinalSubmit}
-                    className="gap-2 shadow-primary/25 shadow-lg"
+                    className="gap-2 shadow-primary/25 shadow-lg min-h-[44px]"
                     data-testid="button-wizard-start-analysis"
                   >
-                    <Play className="w-4 h-4 fill-current" />
+                    <Play className="w-4 h-4 fill-current" aria-hidden="true" />
                     Start Analysis
                   </Button>
                 </div>

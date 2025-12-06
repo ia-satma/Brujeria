@@ -55,7 +55,7 @@ export function ReportView({ report, reportId }: ReportViewProps) {
             <p className="text-3xl font-mono font-bold text-primary">{report.client_website_analysis.overall_score}/10</p>
           </div>
           {reportId && (
-            <Button asChild className="shadow-lg" data-testid="button-download-pdf">
+            <Button asChild className="shadow-lg w-full md:w-auto" data-testid="button-download-pdf">
               <a href={`/api/reports/${reportId}/pdf`} download>
                 <Download className="w-4 h-4 mr-2" />
                 Descargar PDF
@@ -67,15 +67,15 @@ export function ReportView({ report, reportId }: ReportViewProps) {
 
       {/* Main Content Tabs */}
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-5 lg:w-[700px] mb-8 bg-muted/50">
-          <TabsTrigger value="overview" data-testid="tab-overview">Resumen</TabsTrigger>
-          <TabsTrigger value="workspace" data-testid="tab-workspace" className="flex items-center gap-1">
+        <TabsList className="flex w-full lg:w-[700px] mb-8 bg-muted/50 overflow-x-auto scrollbar-hide" role="tablist" aria-label="Secciones del reporte">
+          <TabsTrigger value="overview" data-testid="tab-overview" className="min-h-[44px] flex-1 min-w-[100px]">Resumen</TabsTrigger>
+          <TabsTrigger value="workspace" data-testid="tab-workspace" className="min-h-[44px] flex-1 min-w-[100px] flex items-center justify-center gap-1">
             <LayoutGrid className="w-3 h-3" />
             Workspace
           </TabsTrigger>
-          <TabsTrigger value="client" data-testid="tab-client">Cliente</TabsTrigger>
-          <TabsTrigger value="competitors" data-testid="tab-competitors">Competidores</TabsTrigger>
-          <TabsTrigger value="council" data-testid="tab-council">Consejo</TabsTrigger>
+          <TabsTrigger value="client" data-testid="tab-client" className="min-h-[44px] flex-1 min-w-[100px]">Cliente</TabsTrigger>
+          <TabsTrigger value="competitors" data-testid="tab-competitors" className="min-h-[44px] flex-1 min-w-[100px]">Competidores</TabsTrigger>
+          <TabsTrigger value="council" data-testid="tab-council" className="min-h-[44px] flex-1 min-w-[100px]">Consejo</TabsTrigger>
         </TabsList>
 
         {/* OVERVIEW TAB */}
@@ -90,7 +90,7 @@ export function ReportView({ report, reportId }: ReportViewProps) {
                 </CardTitle>
                 <CardDescription>Rendimiento relativo de todos los sitios analizados</CardDescription>
               </CardHeader>
-              <CardContent className="h-[300px]">
+              <CardContent className="h-[300px]" role="img" aria-label="Gráfico de barras comparando puntuaciones de benchmark entre sitios">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
                     data={[report.client_website_analysis, ...report.competitor_analyses].map(s => ({
@@ -220,7 +220,7 @@ export function ReportView({ report, reportId }: ReportViewProps) {
         <TabsContent value="competitors" className="space-y-8">
           {report.competitor_analyses.map((site, i) => (
             <div key={i}>
-              <h3 className="text-xl font-display font-bold mb-4 text-foreground">{site.name}</h3>
+              <h2 className="text-xl font-display font-bold mb-4 text-foreground">{site.name}</h2>
               <SiteDetailView site={site} />
               {i < report.competitor_analyses.length - 1 && <Separator className="my-8" />}
             </div>
@@ -303,7 +303,7 @@ export function ReportView({ report, reportId }: ReportViewProps) {
             <>
               <div className="flex items-center gap-2 mt-8 mb-4">
                 <Users className="w-5 h-5 text-purple-400" />
-                <h3 className="text-lg font-display font-bold text-foreground">Deliberación del Consejo - Etapa 1</h3>
+                <h2 className="text-lg font-display font-bold text-foreground">Deliberación del Consejo - Etapa 1</h2>
                 <Badge variant="outline" className="ml-2">Consenso: {report.councilResult.consensusScore}%</Badge>
               </div>
               
@@ -353,7 +353,7 @@ export function ReportView({ report, reportId }: ReportViewProps) {
                 <div className="mt-6">
                   <div className="flex items-center gap-2 mb-4">
                     <ListOrdered className="w-5 h-5 text-primary" />
-                    <h3 className="text-lg font-display font-bold text-foreground">Clasificación Final de Problemas</h3>
+                    <h2 className="text-lg font-display font-bold text-foreground">Clasificación Final de Problemas</h2>
                   </div>
                   <div className="space-y-2">
                     {report.councilResult.finalRanking.map((issue, i) => (
@@ -370,7 +370,7 @@ export function ReportView({ report, reportId }: ReportViewProps) {
             <div className="mt-8">
               <div className="flex items-center gap-2 mb-4">
                 <Target className="w-5 h-5 text-emerald-400" />
-                <h3 className="text-lg font-display font-bold text-foreground">Tareas Priorizadas</h3>
+                <h2 className="text-lg font-display font-bold text-foreground">Tareas Priorizadas</h2>
               </div>
               <div className="space-y-4">
                 {report.prioritized_tasks.map((task, i) => (
@@ -444,7 +444,7 @@ export function ReportView({ report, reportId }: ReportViewProps) {
             <Card className="border-dashed">
               <CardContent className="flex flex-col items-center justify-center py-12 text-center">
                 <Users className="w-12 h-12 text-muted-foreground/30 mb-4" />
-                <h3 className="text-lg font-medium text-muted-foreground">No hay Perspectivas del Consejo Disponibles</h3>
+                <p className="text-lg font-medium text-muted-foreground">No hay Perspectivas del Consejo Disponibles</p>
                 <p className="text-sm text-muted-foreground/70 mt-2 max-w-md">
                   Los datos de deliberación del consejo no están disponibles para este análisis. 
                   Esto puede ocurrir con reportes antiguos o modos de análisis simplificados.
@@ -472,7 +472,7 @@ function SiteDetailView({ site }: { site: SiteAnalysis }) {
       <div className="col-span-1 space-y-6">
         <Card>
           <CardContent className="pt-6">
-            <div className="h-[250px] w-full">
+            <div className="h-[250px] w-full" role="img" aria-label="Gráfico radar mostrando puntuaciones en Visual, UX, Contenido y Técnico">
               <ResponsiveContainer width="100%" height="100%">
                 <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
                   <PolarGrid stroke="#334155" />
