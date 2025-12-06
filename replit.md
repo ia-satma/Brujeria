@@ -2,9 +2,7 @@
 
 ## Overview
 
-This application is an autonomous AI-powered web benchmarking tool designed to analyze and compare website design, user experience, content quality, and technical performance. It accepts multiple URLs (a client website and competitor websites), performs comprehensive analysis through specialized AI agents, and generates detailed comparative reports with actionable recommendations.
-
-The system uses a distributed agent architecture where specialized AI agents work in parallel to evaluate different aspects of websites, providing granular insights across visual design, UX/navigation, content storytelling, and technical performance.
+This project is an autonomous AI-powered web benchmarking tool designed to analyze and compare website design, user experience, content quality, and technical performance. It accepts multiple URLs (a client website and competitor websites), performs comprehensive analysis through specialized AI agents, and generates detailed comparative reports with actionable recommendations. The system uses a distributed, hierarchical multi-agent architecture where specialized AI agents work in parallel to evaluate different aspects of websites, providing granular insights across visual design, UX/navigation, content storytelling, and technical performance. The goal is to provide deep, actionable insights into web presence performance and competitive positioning.
 
 ## User Preferences
 
@@ -14,251 +12,52 @@ Preferred communication style: Simple, everyday language.
 
 ### Frontend Architecture
 
-**Technology Stack:**
-- **Framework:** React 18 with TypeScript
-- **Build Tool:** Vite for fast development and optimized production builds
-- **Styling:** Tailwind CSS with custom theme configuration using the "new-york" shadcn/ui style
-- **UI Components:** Comprehensive shadcn/ui component library (Radix UI primitives)
-- **State Management:** React Hook Form for form handling, TanStack Query for server state
-- **Animations:** Framer Motion for smooth transitions and agent network visualization
-- **Charts:** Recharts for data visualization in reports
-
-**Design System:**
-- Custom dark theme with cyberpunk/terminal aesthetic
-- Custom fonts: Inter (sans), Space Grotesk (display), JetBrains Mono (monospace)
-- Responsive design with mobile-first approach
-- Component aliases configured for clean imports (@/components, @/lib, etc.)
-
-**Key Frontend Features:**
-- Real-time agent execution visualization with network graph
-- Live terminal-style logging showing agent activity
-- Interactive report generation with charts and comparative analysis
-- Multi-URL input form with dynamic competitor field management
+The frontend is built with React 18 and TypeScript, using Vite for development and optimized builds. Styling is handled by Tailwind CSS with a custom "new-york" shadcn/ui theme, incorporating a comprehensive shadcn/ui component library. State management uses React Hook Form and TanStack Query. Framer Motion provides smooth animations, and Recharts is used for data visualization. The design system features a custom dark theme with a cyberpunk/terminal aesthetic, custom fonts (Inter, Space Grotesk, JetBrains Mono), and a responsive, mobile-first approach. Key features include real-time agent execution visualization, live terminal-style logging, interactive report generation, and multi-URL input forms.
 
 ### Backend Architecture
 
-**Technology Stack:**
-- **Runtime:** Node.js with Express.js
-- **Language:** TypeScript with ESNext module system
-- **AI Integration:** OpenAI API for agent reasoning and analysis
-- **Session Management:** Express sessions with PostgreSQL session store (connect-pg-simple)
+The backend is built with Node.js and Express.js, written in TypeScript. It integrates with the OpenAI API for agent reasoning and analysis. Session management uses Express sessions with a PostgreSQL session store.
 
 **Agent Architecture Pattern:**
 
-The system implements a **hierarchical multi-agent architecture** with specialized agents:
+The system employs a hierarchical multi-agent architecture:
 
-1. **Orchestrator Layer:**
-   - `Benchmarking_Manager`: Main coordinator that distributes tasks and consolidates results
-   - `Scraping_Orchestrator`: Manages web scraping and data extraction
+*   **Orchestrator Layer:** `Benchmarking_Manager` (main coordinator) and `Scraping_Orchestrator`.
+*   **Specialized Analyst Agents:** `Visual_Aesthetics_Agent`, `UX_Navigation_Agent`, `Content_Storytelling_Agent`, and `Technical_Performance_Agent` work in parallel.
+*   **Sub-Agents:** Each analyst agent delegates to specialized sub-agents for granular analysis.
 
-2. **Specialized Analyst Agents (work in parallel):**
-   - `Visual_Aesthetics_Agent`: Analyzes color palettes, typography, design trends
-   - `UX_Navigation_Agent`: Evaluates information architecture, CTAs, responsive design
-   - `Content_Storytelling_Agent`: Assesses brand voice, thought leadership, credibility
-   - `Technical_Performance_Agent`: Reviews page speed, SEO optimization, content structure
-
-3. **Sub-Agents:** Each analyst agent delegates to specialized sub-agents for granular analysis (e.g., Color_Palette_Analyzer, Typo_Readability_Checker, CTA_Effectiveness_Scorer)
-
-**Processing Flow:**
-- Accepts client URL and competitor URLs via REST API
-- Sequentially scrapes and analyzes each website
-- Runs specialized agents in parallel for each site
-- Aggregates results into structured JSON report
-- Calculates comparative scores and generates recommendations
-
-**Scoring System:**
-- Each analysis area receives a 1-10 score
-- Overall score calculated as average across all areas
-- Scores compared across client and competitor sites
-- Industry benchmarks and best practices identified
+The processing flow involves scraping websites, running specialized agents in parallel, aggregating results into structured JSON reports, and generating comparative scores and recommendations (1-10 scale).
 
 ### Data Storage
 
-**Database:** PostgreSQL with Drizzle ORM
+PostgreSQL is used as the database with Drizzle ORM. The schema includes `users` for authentication and `analysis_reports` to store analysis results, client/competitor URLs, and report data. Drizzle Kit is used for migrations, and Zod validation schemas are generated from Drizzle schemas. PostgreSQL also backs session storage.
 
-**Schema Design:**
-- `users` table: Basic authentication (username/password)
-- `analysis_reports` table: Stores complete analysis results with:
-  - Client and competitor URLs (JSON array)
-  - Full report data (JSON object)
-  - Timestamp for historical tracking
+### Agent Knowledge & Autonomy
 
-**ORM Configuration:**
-- Drizzle Kit for migrations (output to ./migrations)
-- Schema defined in shared/schema.ts for full-stack type safety
-- Zod validation schemas generated from Drizzle schemas
-
-**Session Storage:** PostgreSQL-backed sessions for production scalability
-
-### External Dependencies
-
-**AI Services:**
-- **OpenAI API:** Primary LLM provider for agent reasoning and analysis
-  - Configured via environment variables (AI_INTEGRATIONS_OPENAI_API_KEY, AI_INTEGRATIONS_OPENAI_BASE_URL)
-  - Used for multi-turn agent conversations and structured output generation
-
-**Web Scraping:**
-- Built-in web scraping capability to extract:
-  - HTML content and parsed text
-  - Meta tags (title, description)
-  - Heading structure (H1, H2 tags)
-  - Links and image counts
-  - Viewport and responsive design indicators
-
-**Third-Party UI Libraries:**
-- Radix UI: Accessible component primitives (40+ components installed)
-- Lucide React: Icon library
-- Recharts: Chart rendering
-- CMDK: Command palette functionality
-- Embla Carousel: Carousel component
-
-**Development Tools:**
-- Replit-specific plugins for development banner, error overlay, and cartographer
-- Custom Vite plugin for OpenGraph image meta tag injection
-- ESBuild for optimized server bundling
-
-**Production Build:**
-- Client built with Vite to dist/public
-- Server bundled with ESBuild to dist/index.cjs
-- Selective dependency bundling to reduce cold start times
-- Static file serving from Express
-
-**Environment Configuration:**
-- DATABASE_URL required for PostgreSQL connection
-- OpenAI credentials for AI agent execution
-- NODE_ENV switching between development (Vite middleware) and production (static serving)
-
-### Agent Knowledge System
-
-**Knowledge Storage:**
-- pCloud integration for persistent knowledge document storage
-- Agent-specific folder structure: `/BenchmarkingCouncil/<Agent>/<YYYY-MM>/`
-- PostgreSQL database for metadata indexing and fast retrieval
-
-**Database Tables for Knowledge:**
-- `agent_knowledge_documents`: Stores document metadata, pCloud paths, tags, scores
-- `agent_states`: Tracks agent performance metrics, specializations, learning progress
-- `agent_learning_events`: Audit log of all learning activities
-
-**Key Services:**
-- `AgentKnowledgeService` (server/agent-knowledge.ts): Saves analysis results and patterns to pCloud + DB
-- `CrossAgentRAGService`: Retrieves relevant prior knowledge across agents before analysis
-- `AutonomyEngine` (server/autonomy-engine.ts): Proactive self-specialization and pattern detection
-
-### Autonomy Engine
-
-**Self-Learning Capabilities:**
-1. **Pattern Detection**: Analyzes accumulated knowledge to identify common issues, industry trends, and best practices
-2. **Performance Analysis**: Monitors agent consistency, scoring trends, and identifies weak areas
-3. **Specialization Optimization**: Automatically recommends and applies specializations based on performance data
-
-**API Endpoints:**
-- `POST /api/autonomy/run-learning-cycle`: Triggers a full learning cycle
-- `GET /api/autonomy/stats`: Returns engine statistics (patterns detected, agents optimized)
-- `GET /api/autonomy/agent-performance`: Returns detailed performance metrics for all agents
-
-**Integration Points:**
-- Pattern extraction runs automatically after each agent analysis
-- Agents retrieve prior knowledge via RAG before performing new analysis
-- Learning metrics stored in agent_states table
+*   **Agent Knowledge System:** Persistent knowledge storage is managed via pCloud integration, with agent-specific folder structures and a PostgreSQL database for metadata indexing. Services like `AgentKnowledgeService` and `CrossAgentRAGService` manage knowledge saving and retrieval, while the `AutonomyEngine` enables self-specialization and pattern detection.
+*   **Autonomy Engine:** Provides self-learning capabilities through pattern detection, performance analysis, and specialization optimization. It tracks agent performance, identifies issues, and leverages accumulated knowledge.
+*   **Dynamic Subagent Skills System:** This system allows agents to create, evolve, and improve specialized subagents dynamically. Skills have a 4-layer knowledge structure (Knowledge Base, Practical Content, Contextual Information, Tone Guidelines) and evolve in expertise levels (novice to master) based on performance metrics. A `SubagentFactory` creates and manages these skills, persisting them to pCloud.
 
 ### 9-Layer Agent Configuration System
 
-The system implements a sophisticated **9-layer configuration architecture** that enables advanced agent customization, self-awareness, and continuous improvement.
+A sophisticated 9-layer configuration architecture enables advanced agent customization and continuous improvement:
 
-**Configuration Files:**
-- `server/config/agent-config-schema.ts` - Complete Zod schema definitions for all 9 layers
-- `server/config/agent-config-registry.ts` - Configuration loader and registry service
-- `server/config/agents/` - Individual agent configurations:
-  - `visual-aesthetics.ts` - Creative Director archetype
-  - `ux-navigation.ts` - Experience Architect archetype
-  - `content-storytelling.ts` - Strategic Narrator archetype
-  - `technical-performance.ts` - Precision Engineer archetype
+1.  **Identity:** Agent personality, archetype, tone, objectives.
+2.  **Security:** Boundaries, ethical guidelines, data handling.
+3.  **Methodology:** Reasoning, scoring frameworks, output structure.
+4.  **Static Knowledge:** Foundational expertise, principles, best practices.
+5.  **Dynamic Data:** Context-aware configuration, session context, prior knowledge.
+6.  **Tools:** Subagent definitions, execution modes, error handling.
+7.  **Orchestration:** Cross-agent collaboration, consensus mechanisms.
+8.  **Metacognition:** Self-awareness (confidence, bias detection, limitations).
+9.  **Evolution:** Self-improvement mechanisms (learning events, proposal generation).
 
-**Layer Architecture:**
+Industry-specific templates (e.g., fintech, e-commerce) are also managed within this system. Supporting services include `MetacognitionService`, `EvolutionService`, and `ConfigPersistenceService`.
 
-1. **Layer 1 - Identity**: Defines agent personality, archetype, tone, and objectives
-   - Archetypes: creative_director, experience_architect, strategic_narrator, precision_engineer
-   - Tones: inspiring_technical, empathetic_analytical, persuasive_analytical, methodical_objective
-   - Personality traits and communication style
+## External Dependencies
 
-2. **Layer 2 - Security**: Sets boundaries and ethical guidelines
-   - Confidentiality levels (public, client_only, internal, restricted)
-   - Data handling rules and prohibited actions
-   - Audit requirements and scope limitations
-
-3. **Layer 3 - Methodology**: Defines reasoning and scoring frameworks
-   - Chain-of-thought reasoning steps with validation criteria
-   - Scoring rubrics with thresholds (1-10 scale)
-   - Output structure requirements and iteration protocols
-
-4. **Layer 4 - Static Knowledge**: Foundational expertise and principles
-   - Core design/UX/content/technical principles
-   - Industry standards and best practices
-   - Reference authorities and glossary
-
-5. **Layer 5 - Dynamic Data**: Context-aware configuration
-   - Session context (industry, client size, urgency)
-   - Prior knowledge retrieval settings
-   - Trend awareness and memory settings
-
-6. **Layer 6 - Tools**: Subagent definitions and capabilities
-   - Available subagent tools with prompts
-   - Execution mode (parallel, sequential, adaptive)
-   - Error handling and fallback behaviors
-
-7. **Layer 7 - Orchestration**: Cross-agent collaboration
-   - Collaboration protocols with target agents
-   - Consensus mechanisms and escalation rules
-   - Handoff protocols for context transfer
-
-8. **Layer 8 - Metacognition**: Self-awareness capabilities
-   - Confidence assessment with weighted factors
-   - Bias detection with mitigation strategies
-   - Limitations awareness and performance tracking
-
-9. **Layer 9 - Evolution**: Self-improvement mechanisms
-   - Learning event recording and analysis
-   - Proposal generation for improvements
-   - Adaptation rules with approval workflows
-
-**Industry Templates:**
-- `server/config/industries/` - Industry-specific configurations:
-  - `fintech.ts` - Financial Technology focus
-  - `ecommerce.ts` - E-Commerce & Retail focus
-  - `saas.ts` - Software as a Service focus
-  - `healthcare.ts` - Healthcare & Medical focus
-
-**Supporting Services:**
-
-1. **MetacognitionService** (`server/metacognition-service.ts`):
-   - Calculates confidence scores based on data quality, pattern recognition, subagent agreement
-   - Detects potential biases (recency, confirmation, anchoring)
-   - Assigns reliability levels (high/medium/low) to analysis results
-
-2. **EvolutionService** (`server/evolution-service.ts`):
-   - Records learning events after each analysis
-   - Generates evolution proposals for scoring calibration
-   - Tracks performance statistics and trends per agent
-   - Persists learning data to pCloud for long-term memory
-
-3. **ConfigPersistenceService** (`server/config/config-persistence.ts`):
-   - Saves/loads agent configurations to pCloud
-   - Maintains version history with 10 previous versions
-   - Stores evolution proposals and approved changes
-   - Manages industry template persistence
-
-**API Endpoints for Configuration:**
-- `GET /api/config/stats` - Returns count of loaded agents and industry templates
-- `GET /api/evolution/stats` - Performance statistics per agent
-- `GET /api/evolution/summary` - Summary of learning events
-- `GET /api/evolution/proposals` - List of evolution proposals
-- `POST /api/evolution/save` - Persist evolution data to pCloud
-- `POST /api/evolution/load` - Load evolution data from pCloud
-
-**Agent Engine Integration:**
-The agent engine (`server/agent-engine.ts`) integrates with the 9-layer system:
-- Loads prompts from registry via `getSubagentPromptFromRegistry()`
-- Executes metacognition after each analysis via `performMetacognition()`
-- Records learning events via `evolutionService.recordLearningEvent()`
-- Updates performance stats via `evolutionService.updatePerformanceStats()`
+*   **AI Services:** OpenAI API for primary LLM functionality, agent reasoning, and analysis.
+*   **Web Scraping:** Built-in capabilities to extract HTML content, meta tags, heading structures, links, image counts, and viewport information.
+*   **Third-Party UI Libraries:** Radix UI (accessible component primitives), Lucide React (icons), Recharts (charts), CMDK (command palette), Embla Carousel (carousel component).
+*   **Development Tools:** Replit-specific plugins, custom Vite plugin for OpenGraph, ESBuild for server bundling.
+*   **Cloud Storage:** pCloud integration for persistent agent knowledge and configuration storage.
