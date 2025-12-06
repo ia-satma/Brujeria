@@ -241,6 +241,7 @@ export default function Dashboard() {
     setLogs([]);
     setError(null);
     form.reset();
+    setInputMode("manual");
     setPortfolioUrl("");
     setExtractedDomains([]);
     setExtractError(null);
