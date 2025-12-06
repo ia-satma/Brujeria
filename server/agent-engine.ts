@@ -1,9 +1,20 @@
 import OpenAI from "openai";
+import { 
+  getAgentKnowledgeService, 
+  getCrossAgentRAGService,
+  AGENT_NAMES,
+  type AgentName,
+  type RAGResult,
+  type RAGContext
+} from "./agent-knowledge";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY!,
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
 });
+
+const knowledgeService = getAgentKnowledgeService();
+const ragService = getCrossAgentRAGService();
 
 // ============================================================================
 // INTERFACES
@@ -1071,6 +1082,81 @@ function aggregateSubagentResults(results: SubAgentResult[]): { observations: st
   };
 }
 
+function buildPriorKnowledgeContext(ragResults: RAGResult[]): string {
+  if (ragResults.length === 0) return '';
+  
+  let context = '\n=== PRIOR KNOWLEDGE FROM MEMORY ===\n';
+  context += `Found ${ragResults.length} relevant prior analyses:\n\n`;
+  
+  for (const result of ragResults.slice(0, 3)) {
+    const doc = result.document;
+    context += `--- From ${result.sourceAgent} (relevance: ${result.relevanceScore.toFixed(1)}) ---\n`;
+    context += `Title: ${doc.title}\n`;
+    if (doc.sourceUrl) context += `Source: ${doc.sourceUrl}\n`;
+    
+    const content = doc.content as Record<string, unknown>;
+    if (content.observations) context += `Key Observations: ${content.observations}\n`;
+    if (content.score) context += `Prior Score: ${content.score}/10\n`;
+    if (content.strengths && Array.isArray(content.strengths)) {
+      context += `Strengths Found: ${(content.strengths as string[]).slice(0, 2).join(', ')}\n`;
+    }
+    if (content.weaknesses && Array.isArray(content.weaknesses)) {
+      context += `Weaknesses Found: ${(content.weaknesses as string[]).slice(0, 2).join(', ')}\n`;
+    }
+    context += '\n';
+  }
+  
+  context += 'Use this prior knowledge to inform your analysis, but focus on the CURRENT website.\n';
+  return context;
+}
+
+async function retrieveAgentKnowledge(
+  agentName: AgentName,
+  url: string,
+  analysisType: 'visual' | 'ux' | 'content' | 'technical',
+  log?: LogCallback
+): Promise<RAGResult[]> {
+  try {
+    const context: RAGContext = {
+      currentUrl: url,
+      analysisType,
+      minScore: 10,
+    };
+    
+    const results = await ragService.retrieveRelevantKnowledge(agentName, context, 5);
+    
+    if (results.length > 0) {
+      log?.(`  [${agentName}] Retrieved ${results.length} prior knowledge documents`);
+    }
+    
+    return results;
+  } catch (err) {
+    console.error(`[${agentName}] Knowledge retrieval failed:`, err);
+    return [];
+  }
+}
+
+async function saveAgentAnalysisResult(
+  agentName: AgentName,
+  url: string,
+  result: AnalysisSection,
+  log?: LogCallback
+): Promise<void> {
+  try {
+    await knowledgeService.saveAnalysisResult(agentName, {
+      url,
+      score: result.score,
+      observations: result.observations,
+      strengths: result.strengths,
+      weaknesses: result.weaknesses,
+      subagentResults: result.subagent_results,
+    });
+    log?.(`  [${agentName}] Saved analysis to knowledge base`);
+  } catch (err) {
+    console.error(`[${agentName}] Failed to save analysis:`, err);
+  }
+}
+
 // ============================================================================
 // AGENT EXECUTION - Visual Aesthetics Agent (VAA)
 // ============================================================================
@@ -1078,7 +1164,14 @@ function aggregateSubagentResults(results: SubAgentResult[]): { observations: st
 async function runVisualAestheticsAgent(content: SiteContent, log?: LogCallback): Promise<AnalysisSection> {
   log?.(`[Visual_Aesthetics_Agent] Starting analysis...`);
   
-  const context = buildContext(content);
+  const priorKnowledge = await retrieveAgentKnowledge(
+    AGENT_NAMES.VISUAL_AESTHETICS_AGENT,
+    content.url,
+    'visual',
+    log
+  );
+  const knowledgeContext = buildPriorKnowledgeContext(priorKnowledge);
+  const context = buildContext(content) + knowledgeContext;
   
   const [colorResult, typoResult, trendResult] = await Promise.all([
     runSubagent('Color_Palette_Analyzer', COLOR_PALETTE_ANALYZER_PROMPT, context, log),
@@ -1088,12 +1181,16 @@ async function runVisualAestheticsAgent(content: SiteContent, log?: LogCallback)
 
   const aggregated = aggregateSubagentResults([colorResult, typoResult, trendResult]);
   
-  log?.(`[Visual_Aesthetics_Agent] COMPLETED - Score: ${aggregated.score}/10`);
-  
-  return {
+  const analysisResult: AnalysisSection = {
     ...aggregated,
     subagent_results: [colorResult, typoResult, trendResult],
   };
+  
+  await saveAgentAnalysisResult(AGENT_NAMES.VISUAL_AESTHETICS_AGENT, content.url, analysisResult, log);
+  
+  log?.(`[Visual_Aesthetics_Agent] COMPLETED - Score: ${aggregated.score}/10`);
+  
+  return analysisResult;
 }
 
 // ============================================================================
@@ -1103,7 +1200,14 @@ async function runVisualAestheticsAgent(content: SiteContent, log?: LogCallback)
 async function runUXNavigationAgent(content: SiteContent, log?: LogCallback): Promise<AnalysisSection> {
   log?.(`[UX_Navigation_Agent] Starting analysis...`);
   
-  const context = buildContext(content);
+  const priorKnowledge = await retrieveAgentKnowledge(
+    AGENT_NAMES.UX_NAVIGATION_AGENT,
+    content.url,
+    'ux',
+    log
+  );
+  const knowledgeContext = buildPriorKnowledgeContext(priorKnowledge);
+  const context = buildContext(content) + knowledgeContext;
   
   const [iaResult, ctaResult, responsiveResult] = await Promise.all([
     runSubagent('Information_Architecture_Mapper', INFORMATION_ARCHITECTURE_MAPPER_PROMPT, context, log),
@@ -1113,12 +1217,16 @@ async function runUXNavigationAgent(content: SiteContent, log?: LogCallback): Pr
 
   const aggregated = aggregateSubagentResults([iaResult, ctaResult, responsiveResult]);
   
-  log?.(`[UX_Navigation_Agent] COMPLETED - Score: ${aggregated.score}/10`);
-  
-  return {
+  const analysisResult: AnalysisSection = {
     ...aggregated,
     subagent_results: [iaResult, ctaResult, responsiveResult],
   };
+  
+  await saveAgentAnalysisResult(AGENT_NAMES.UX_NAVIGATION_AGENT, content.url, analysisResult, log);
+  
+  log?.(`[UX_Navigation_Agent] COMPLETED - Score: ${aggregated.score}/10`);
+  
+  return analysisResult;
 }
 
 // ============================================================================
@@ -1128,7 +1236,14 @@ async function runUXNavigationAgent(content: SiteContent, log?: LogCallback): Pr
 async function runContentStorytellingAgent(content: SiteContent, log?: LogCallback): Promise<AnalysisSection> {
   log?.(`[Content_Storytelling_Agent] Starting analysis...`);
   
-  const context = buildContext(content);
+  const priorKnowledge = await retrieveAgentKnowledge(
+    AGENT_NAMES.CONTENT_STORYTELLING_AGENT,
+    content.url,
+    'content',
+    log
+  );
+  const knowledgeContext = buildPriorKnowledgeContext(priorKnowledge);
+  const context = buildContext(content) + knowledgeContext;
   
   const [voiceResult, thoughtResult, credibilityResult] = await Promise.all([
     runSubagent('Brand_Voice_Validator', BRAND_VOICE_VALIDATOR_PROMPT, context, log),
@@ -1138,12 +1253,16 @@ async function runContentStorytellingAgent(content: SiteContent, log?: LogCallba
 
   const aggregated = aggregateSubagentResults([voiceResult, thoughtResult, credibilityResult]);
   
-  log?.(`[Content_Storytelling_Agent] COMPLETED - Score: ${aggregated.score}/10`);
-  
-  return {
+  const analysisResult: AnalysisSection = {
     ...aggregated,
     subagent_results: [voiceResult, thoughtResult, credibilityResult],
   };
+  
+  await saveAgentAnalysisResult(AGENT_NAMES.CONTENT_STORYTELLING_AGENT, content.url, analysisResult, log);
+  
+  log?.(`[Content_Storytelling_Agent] COMPLETED - Score: ${aggregated.score}/10`);
+  
+  return analysisResult;
 }
 
 // ============================================================================
@@ -1153,7 +1272,14 @@ async function runContentStorytellingAgent(content: SiteContent, log?: LogCallba
 async function runTechnicalPerformanceAgent(content: SiteContent, log?: LogCallback): Promise<AnalysisSection> {
   log?.(`[Technical_Performance_Agent] Starting analysis...`);
   
-  const context = buildContext(content);
+  const priorKnowledge = await retrieveAgentKnowledge(
+    AGENT_NAMES.TECHNICAL_PERFORMANCE_AGENT,
+    content.url,
+    'technical',
+    log
+  );
+  const knowledgeContext = buildPriorKnowledgeContext(priorKnowledge);
+  const context = buildContext(content) + knowledgeContext;
   
   const [speedResult, seoResult, markupResult] = await Promise.all([
     runSubagent('Page_Speed_Scorer', PAGE_SPEED_SCORER_PROMPT, context, log),
@@ -1163,12 +1289,16 @@ async function runTechnicalPerformanceAgent(content: SiteContent, log?: LogCallb
 
   const aggregated = aggregateSubagentResults([speedResult, seoResult, markupResult]);
   
-  log?.(`[Technical_Performance_Agent] COMPLETED - Score: ${aggregated.score}/10`);
-  
-  return {
+  const analysisResult: AnalysisSection = {
     ...aggregated,
     subagent_results: [speedResult, seoResult, markupResult],
   };
+  
+  await saveAgentAnalysisResult(AGENT_NAMES.TECHNICAL_PERFORMANCE_AGENT, content.url, analysisResult, log);
+  
+  log?.(`[Technical_Performance_Agent] COMPLETED - Score: ${aggregated.score}/10`);
+  
+  return analysisResult;
 }
 
 // ============================================================================
