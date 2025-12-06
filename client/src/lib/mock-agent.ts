@@ -19,8 +19,87 @@ export interface SiteAnalysis {
   overall_score: number;
 }
 
+export interface CouncilFinding {
+  issue: string;
+  severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+  impact: string;
+  evidence: string;
+}
+
+export interface CouncilOpinion {
+  persona: 'critic' | 'strategist' | 'innovator';
+  personaName: string;
+  analysis: string;
+  findings: CouncilFinding[];
+  confidence: number;
+}
+
+export interface PeerReviewEvaluation {
+  reviewed: string;
+  agree: string[];
+  disagree: string;
+  rank: number;
+}
+
+export interface PeerReview {
+  reviewer: 'critic' | 'strategist' | 'innovator';
+  evaluations: PeerReviewEvaluation[];
+  selfRank: number;
+  rationale: string;
+}
+
+export interface FinalRankedIssue {
+  issue: string;
+  priority: 'P0' | 'P1' | 'P2';
+  votes: number;
+  severity: string;
+}
+
+export interface CouncilResult {
+  consensusScore: number;
+  finalRanking: FinalRankedIssue[];
+  chairmanVerdict: string;
+  dissentingOpinions: string[];
+  stage1Opinions: CouncilOpinion[];
+  stage2Reviews: PeerReview[];
+}
+
+export interface ReportMetadata {
+  generated_at: string;
+  client_url: string;
+  competitors_analyzed: number;
+  council_consensus: number;
+}
+
+export interface ExecutiveSummary {
+  overall_score: number;
+  vs_competitors: string;
+  critical_issues: number;
+  estimated_conversion_loss: string;
+}
+
+export interface PrioritizedTask {
+  id: string;
+  priority: string;
+  department: string;
+  title: string;
+  problem: string;
+  solution: string;
+  success_metrics: string[];
+  estimated_hours: number;
+  replit_code?: string | null;
+}
+
+export interface CompletionCriteria {
+  phase_0: string;
+  phase_1: string;
+  phase_2: string;
+}
+
 export interface Report {
   report_title: string;
+  report_metadata?: ReportMetadata;
+  executive_summary?: ExecutiveSummary;
   client_website_analysis: SiteAnalysis;
   competitor_analyses: SiteAnalysis[];
   comparative_analysis: {
@@ -35,6 +114,10 @@ export interface Report {
     innovative_opportunities: string[];
   };
   implementation_notes: string[];
+  councilResult?: CouncilResult;
+  prioritized_tasks?: PrioritizedTask[];
+  execution_order?: string[];
+  completion_criteria?: CompletionCriteria;
 }
 
 // --- Mock Data Banks for Sub-Agents ---

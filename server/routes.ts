@@ -11,6 +11,7 @@ import {
   generateExecutiveSummary,
   generatePrioritizedTasks,
   generateCompletionCriteria,
+  extractExternalDomains,
   type SiteAnalysis,
   type Report,
   type LogCallback
@@ -19,6 +20,10 @@ import {
 const analyzeRequestSchema = z.object({
   clientUrl: z.string().url(),
   competitorUrls: z.array(z.string().url()).min(1),
+});
+
+const extractDomainsSchema = z.object({
+  portfolioUrl: z.string().url(),
 });
 
 export async function registerRoutes(
@@ -231,6 +236,22 @@ export async function registerRoutes(
       console.error("Stream analysis error:", error);
       res.write(`data: ${JSON.stringify({ type: 'error', message: 'Analysis failed' })}\n\n`);
       res.end();
+    }
+  });
+
+  app.post("/api/extract-domains", async (req, res) => {
+    try {
+      const { portfolioUrl } = extractDomainsSchema.parse(req.body);
+      
+      const result = await extractExternalDomains(portfolioUrl);
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Extract domains error:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid request", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to extract domains" });
     }
   });
 

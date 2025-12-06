@@ -1,12 +1,12 @@
 import { motion } from "framer-motion";
-import { Report, SiteAnalysis } from "@/lib/mock-agent";
+import { Report, SiteAnalysis, CouncilOpinion, CouncilResult, PrioritizedTask, FinalRankedIssue } from "@/lib/mock-agent";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ExternalLink, TrendingUp, AlertTriangle, Award, CheckCircle2, BarChart3, FileText } from "lucide-react";
+import { ExternalLink, TrendingUp, AlertTriangle, Award, CheckCircle2, BarChart3, FileText, Users, Target, Clock, Gavel, MessageSquare, ListOrdered } from "lucide-react";
 import {
   Radar,
   RadarChart,
@@ -55,10 +55,11 @@ export function ReportView({ report }: ReportViewProps) {
 
       {/* Main Content Tabs */}
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 lg:w-[400px] mb-8 bg-muted/50">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="client">Client Deep Dive</TabsTrigger>
-          <TabsTrigger value="competitors">Competitors</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-4 lg:w-[550px] mb-8 bg-muted/50">
+          <TabsTrigger value="overview" data-testid="tab-overview">Overview</TabsTrigger>
+          <TabsTrigger value="client" data-testid="tab-client">Client Deep Dive</TabsTrigger>
+          <TabsTrigger value="competitors" data-testid="tab-competitors">Competitors</TabsTrigger>
+          <TabsTrigger value="council" data-testid="tab-council">Council Insights</TabsTrigger>
         </TabsList>
 
         {/* OVERVIEW TAB */}
@@ -189,6 +190,233 @@ export function ReportView({ report }: ReportViewProps) {
             </div>
           ))}
         </TabsContent>
+
+        {/* COUNCIL INSIGHTS */}
+        <TabsContent value="council" className="space-y-6">
+          {/* Report Metadata & Executive Summary */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {report.report_metadata && (
+              <Card data-testid="card-report-metadata">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <FileText className="w-5 h-5 text-primary" />
+                    Report Metadata
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Generated At</span>
+                    <span className="font-mono text-foreground">{report.report_metadata.generated_at}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Client URL</span>
+                    <span className="font-mono text-foreground truncate max-w-[200px]">{report.report_metadata.client_url}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Competitors Analyzed</span>
+                    <span className="font-mono text-foreground">{report.report_metadata.competitors_analyzed}</span>
+                  </div>
+                  <div className="flex justify-between text-sm items-center">
+                    <span className="text-muted-foreground">Council Consensus</span>
+                    <div className="flex items-center gap-2">
+                      <Progress value={report.report_metadata.council_consensus} className="w-20 h-2" />
+                      <span className="font-mono text-foreground">{report.report_metadata.council_consensus}%</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {report.executive_summary && (
+              <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20" data-testid="card-executive-summary">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Target className="w-5 h-5 text-primary" />
+                    Executive Summary
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="text-center p-3 bg-background/50 rounded-lg">
+                      <div className="text-3xl font-mono font-bold text-primary">{report.executive_summary.overall_score}/10</div>
+                      <div className="text-xs text-muted-foreground mt-1">Overall Score</div>
+                    </div>
+                    <div className="text-center p-3 bg-background/50 rounded-lg">
+                      <div className="text-lg font-medium text-foreground">{report.executive_summary.vs_competitors}</div>
+                      <div className="text-xs text-muted-foreground mt-1">vs Competitors</div>
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center p-3 bg-red-950/20 rounded-lg border border-red-900/20">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 text-red-400" />
+                      <span className="text-sm text-muted-foreground">Critical Issues</span>
+                    </div>
+                    <span className="text-xl font-mono font-bold text-red-400">{report.executive_summary.critical_issues}</span>
+                  </div>
+                  <div className="flex justify-between items-center p-3 bg-amber-950/20 rounded-lg border border-amber-900/20">
+                    <span className="text-sm text-muted-foreground">Est. Conversion Loss</span>
+                    <span className="font-mono font-medium text-amber-400">{report.executive_summary.estimated_conversion_loss}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          {/* Council Deliberation */}
+          {report.councilResult && (
+            <>
+              <div className="flex items-center gap-2 mt-8 mb-4">
+                <Users className="w-5 h-5 text-purple-400" />
+                <h3 className="text-lg font-display font-bold text-foreground">Council Deliberation - Stage 1</h3>
+                <Badge variant="outline" className="ml-2">Consensus: {report.councilResult.consensusScore}%</Badge>
+              </div>
+              
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                {report.councilResult.stage1Opinions.map((opinion, i) => (
+                  <CouncilOpinionCard key={i} opinion={opinion} />
+                ))}
+              </div>
+
+              {/* Chairman's Verdict */}
+              <Card className="mt-6 bg-gradient-to-br from-purple-950/20 to-indigo-950/20 border-purple-900/30" data-testid="card-chairman-verdict">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Gavel className="w-5 h-5 text-purple-400" />
+                    Chairman's Verdict
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground leading-relaxed">{report.councilResult.chairmanVerdict}</p>
+                </CardContent>
+              </Card>
+
+              {/* Dissenting Opinions */}
+              {report.councilResult.dissentingOpinions.length > 0 && (
+                <Card className="mt-4 border-amber-900/30" data-testid="card-dissenting-opinions">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="flex items-center gap-2 text-amber-400 text-base">
+                      <MessageSquare className="w-4 h-4" />
+                      Dissenting Opinions
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ul className="space-y-2">
+                      {report.councilResult.dissentingOpinions.map((opinion, i) => (
+                        <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
+                          <span className="text-amber-500/50 mt-1">•</span>
+                          {opinion}
+                        </li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Final Ranked Issues */}
+              {report.councilResult.finalRanking.length > 0 && (
+                <div className="mt-6">
+                  <div className="flex items-center gap-2 mb-4">
+                    <ListOrdered className="w-5 h-5 text-primary" />
+                    <h3 className="text-lg font-display font-bold text-foreground">Final Issue Ranking</h3>
+                  </div>
+                  <div className="space-y-2">
+                    {report.councilResult.finalRanking.map((issue, i) => (
+                      <FinalRankedIssueCard key={i} issue={issue} rank={i + 1} />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Prioritized Tasks */}
+          {report.prioritized_tasks && report.prioritized_tasks.length > 0 && (
+            <div className="mt-8">
+              <div className="flex items-center gap-2 mb-4">
+                <Target className="w-5 h-5 text-emerald-400" />
+                <h3 className="text-lg font-display font-bold text-foreground">Prioritized Tasks</h3>
+              </div>
+              <div className="space-y-4">
+                {report.prioritized_tasks.map((task, i) => (
+                  <PrioritizedTaskCard key={task.id || i} task={task} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Execution Order */}
+          {report.execution_order && report.execution_order.length > 0 && (
+            <Card className="mt-6" data-testid="card-execution-order">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-blue-400" />
+                  Execution Order
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ol className="space-y-2">
+                  {report.execution_order.map((step, i) => (
+                    <li key={i} className="flex items-start gap-3 text-sm">
+                      <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/20 text-primary text-xs font-mono font-bold shrink-0">
+                        {i + 1}
+                      </span>
+                      <span className="text-muted-foreground pt-0.5">{step}</span>
+                    </li>
+                  ))}
+                </ol>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Completion Criteria */}
+          {report.completion_criteria && (
+            <Card className="mt-6" data-testid="card-completion-criteria">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                  Completion Criteria
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="p-3 bg-red-950/20 rounded-lg border border-red-900/20">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Badge className="bg-red-500/20 text-red-400 border-red-500/30">Phase 0</Badge>
+                    <span className="text-xs text-muted-foreground">Critical</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">{report.completion_criteria.phase_0}</p>
+                </div>
+                <div className="p-3 bg-amber-950/20 rounded-lg border border-amber-900/20">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30">Phase 1</Badge>
+                    <span className="text-xs text-muted-foreground">High Priority</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">{report.completion_criteria.phase_1}</p>
+                </div>
+                <div className="p-3 bg-blue-950/20 rounded-lg border border-blue-900/20">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30">Phase 2</Badge>
+                    <span className="text-xs text-muted-foreground">Medium Priority</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">{report.completion_criteria.phase_2}</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Show message if no council data */}
+          {!report.councilResult && !report.report_metadata && !report.executive_summary && (
+            <Card className="border-dashed">
+              <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+                <Users className="w-12 h-12 text-muted-foreground/30 mb-4" />
+                <h3 className="text-lg font-medium text-muted-foreground">No Council Insights Available</h3>
+                <p className="text-sm text-muted-foreground/70 mt-2 max-w-md">
+                  Council deliberation data is not available for this analysis. 
+                  This may occur with older reports or simplified analysis modes.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
       </Tabs>
     </motion.div>
   );
@@ -309,6 +537,147 @@ function AnalysisSectionCard({ title, data }: { title: string, data: SiteAnalysi
             </ul>
           </div>
         </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function CouncilOpinionCard({ opinion }: { opinion: CouncilOpinion }) {
+  const personaColors: Record<string, { bg: string; border: string; text: string; icon: string }> = {
+    critic: { bg: 'bg-red-950/20', border: 'border-red-900/30', text: 'text-red-400', icon: '🔍' },
+    strategist: { bg: 'bg-blue-950/20', border: 'border-blue-900/30', text: 'text-blue-400', icon: '📊' },
+    innovator: { bg: 'bg-emerald-950/20', border: 'border-emerald-900/30', text: 'text-emerald-400', icon: '💡' },
+  };
+  
+  const colors = personaColors[opinion.persona] || personaColors.critic;
+
+  return (
+    <Card className={`${colors.bg} ${colors.border}`} data-testid={`card-opinion-${opinion.persona}`}>
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <CardTitle className={`flex items-center gap-2 text-base ${colors.text}`}>
+            <span>{colors.icon}</span>
+            {opinion.personaName}
+          </CardTitle>
+          <Badge variant="outline" className="text-xs">
+            {opinion.confidence}% confident
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-sm text-muted-foreground">{opinion.analysis}</p>
+        
+        {opinion.findings.length > 0 && (
+          <div className="space-y-2">
+            <h5 className="text-xs font-medium text-foreground/70 uppercase">Key Findings</h5>
+            {opinion.findings.slice(0, 3).map((finding, i) => (
+              <div key={i} className="p-2 bg-background/40 rounded text-xs space-y-1">
+                <div className="flex items-center gap-2">
+                  <SeverityBadge severity={finding.severity} />
+                  <span className="text-foreground font-medium truncate">{finding.issue}</span>
+                </div>
+                <p className="text-muted-foreground line-clamp-2">{finding.impact}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function SeverityBadge({ severity }: { severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' }) {
+  const styles: Record<string, string> = {
+    CRITICAL: 'bg-red-500/20 text-red-400 border-red-500/30',
+    HIGH: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+    MEDIUM: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+    LOW: 'bg-slate-500/20 text-slate-400 border-slate-500/30',
+  };
+  
+  return (
+    <Badge className={`text-[10px] px-1.5 py-0 ${styles[severity] || styles.MEDIUM}`}>
+      {severity}
+    </Badge>
+  );
+}
+
+function FinalRankedIssueCard({ issue, rank }: { issue: FinalRankedIssue; rank: number }) {
+  const priorityColors: Record<string, string> = {
+    P0: 'bg-red-500/20 text-red-400 border-red-500/30',
+    P1: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+    P2: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+  };
+
+  return (
+    <div 
+      className="flex items-center gap-4 p-3 bg-muted/20 rounded-lg border border-border/50"
+      data-testid={`card-ranked-issue-${rank}`}
+    >
+      <span className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/20 text-primary text-sm font-mono font-bold shrink-0">
+        #{rank}
+      </span>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-foreground truncate">{issue.issue}</p>
+        <p className="text-xs text-muted-foreground">Severity: {issue.severity}</p>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        <span className="text-xs text-muted-foreground">{issue.votes} votes</span>
+        <Badge className={priorityColors[issue.priority] || priorityColors.P2}>
+          {issue.priority}
+        </Badge>
+      </div>
+    </div>
+  );
+}
+
+function PrioritizedTaskCard({ task }: { task: PrioritizedTask }) {
+  const priorityColors: Record<string, { badge: string; bg: string; border: string }> = {
+    'P0-CRITICAL': { badge: 'bg-red-500/20 text-red-400 border-red-500/30', bg: 'bg-red-950/10', border: 'border-red-900/20' },
+    'P1-HIGH': { badge: 'bg-amber-500/20 text-amber-400 border-amber-500/30', bg: 'bg-amber-950/10', border: 'border-amber-900/20' },
+    'P2-MEDIUM': { badge: 'bg-blue-500/20 text-blue-400 border-blue-500/30', bg: 'bg-blue-950/10', border: 'border-blue-900/20' },
+  };
+
+  const colors = priorityColors[task.priority] || priorityColors['P2-MEDIUM'];
+
+  return (
+    <Card className={`${colors.bg} ${colors.border}`} data-testid={`card-task-${task.id}`}>
+      <CardHeader className="pb-2">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <Badge className={colors.badge}>{task.priority}</Badge>
+              <Badge variant="outline" className="text-xs">{task.department}</Badge>
+            </div>
+            <CardTitle className="text-base">{task.title}</CardTitle>
+          </div>
+          <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
+            <Clock className="w-3 h-3" />
+            {task.estimated_hours}h
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div>
+          <h5 className="text-xs font-medium text-red-400 uppercase mb-1">Problem</h5>
+          <p className="text-sm text-muted-foreground">{task.problem}</p>
+        </div>
+        <div>
+          <h5 className="text-xs font-medium text-emerald-400 uppercase mb-1">Solution</h5>
+          <p className="text-sm text-muted-foreground">{task.solution}</p>
+        </div>
+        {task.success_metrics && task.success_metrics.length > 0 && (
+          <div>
+            <h5 className="text-xs font-medium text-blue-400 uppercase mb-1">Success Metrics</h5>
+            <ul className="space-y-1">
+              {task.success_metrics.map((metric, i) => (
+                <li key={i} className="text-xs text-muted-foreground flex items-start gap-2">
+                  <CheckCircle2 className="w-3 h-3 text-blue-400/50 shrink-0 mt-0.5" />
+                  {metric}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
