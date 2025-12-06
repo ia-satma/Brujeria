@@ -12,6 +12,10 @@ import {
   generatePrioritizedTasks,
   generateCompletionCriteria,
   extractExternalDomains,
+  getAgentResilienceStats,
+  getCircuitBreakerSnapshots,
+  resetAgentCircuitBreakers,
+  clearAgentResilienceCache,
   type SiteAnalysis,
   type Report,
   type LogCallback
@@ -586,6 +590,84 @@ export async function registerRoutes(
       });
     } catch (error) {
       console.error("Agent performance error:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
+  // ============================================================================
+  // RESILIENCE API
+  // ============================================================================
+
+  app.get("/api/resilience/stats", async (req, res) => {
+    try {
+      const stats = getAgentResilienceStats();
+      
+      res.json({
+        success: true,
+        stats,
+      });
+    } catch (error) {
+      console.error("Resilience stats error:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
+  app.get("/api/resilience/circuit-breakers", async (req, res) => {
+    try {
+      const circuitBreakers = getCircuitBreakerSnapshots();
+      
+      res.json({
+        success: true,
+        circuitBreakers,
+        summary: {
+          total: circuitBreakers.length,
+          open: circuitBreakers.filter(cb => cb.state === 'OPEN').length,
+          halfOpen: circuitBreakers.filter(cb => cb.state === 'HALF_OPEN').length,
+          closed: circuitBreakers.filter(cb => cb.state === 'CLOSED').length,
+        },
+      });
+    } catch (error) {
+      console.error("Circuit breakers error:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
+  app.post("/api/resilience/reset-circuit-breakers", async (req, res) => {
+    try {
+      resetAgentCircuitBreakers();
+      
+      res.json({
+        success: true,
+        message: "All circuit breakers reset to CLOSED state",
+      });
+    } catch (error) {
+      console.error("Reset circuit breakers error:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
+  app.post("/api/resilience/clear-cache", async (req, res) => {
+    try {
+      clearAgentResilienceCache();
+      
+      res.json({
+        success: true,
+        message: "Resilience cache cleared",
+      });
+    } catch (error) {
+      console.error("Clear cache error:", error);
       res.status(500).json({
         success: false,
         error: error instanceof Error ? error.message : "Unknown error",

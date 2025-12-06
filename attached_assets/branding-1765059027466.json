@@ -1,0 +1,103 @@
+{
+  "colorScheme": "light",
+  "fonts": [
+    {
+      "family": "Helvetica",
+      "role": "body"
+    },
+    {
+      "family": "Arial",
+      "role": "body"
+    },
+    {
+      "family": "Montserrat",
+      "role": "heading"
+    },
+    {
+      "family": "Poppins",
+      "role": "body"
+    },
+    {
+      "family": "Raleway",
+      "role": "display"
+    }
+  ],
+  "colors": {
+    "primary": "#2A3E61",
+    "accent": "#59E2DE",
+    "background": "#FFFFFF",
+    "textPrimary": "#2A3E61",
+    "link": "#2A3E61"
+  },
+  "typography": {
+    "fontFamilies": {
+      "primary": "Helvetica",
+      "heading": "Montserrat"
+    },
+    "fontStacks": {
+      "heading": [
+        "Montserrat",
+        "Helvetica",
+        "Arial",
+        "Lucida",
+        "sans-serif"
+      ],
+      "body": [
+        "Montserrat",
+        "Helvetica",
+        "Arial",
+        "Lucida",
+        "sans-serif"
+      ],
+      "paragraph": [
+        "Raleway",
+        "Helvetica",
+        "Arial",
+        "Lucida",
+        "sans-serif"
+      ]
+    },
+    "fontSizes": {
+      "h1": "14px",
+      "h2": "55px",
+      "body": "16px"
+    }
+  },
+  "spacing": {
+    "baseUnit": 4,
+    "borderRadius": "3px"
+  },
+  "components": {
+    "input": {
+      "borderColor": "#CCCCCC",
+      "borderRadius": "3px"
+    }
+  },
+  "images": {
+    "logo": "https://satma.mx/wp-content/uploads/2023/03/logo-azul-png.png",
+    "favicon": null,
+    "ogImage": null
+  },
+  "__framework_hints": [
+    "All in One SEO (AIOSEO) 4.7.1.1"
+  ],
+  "__llm_logo_reasoning": {
+    "selectedIndex": 0,
+    "reasoning": "The logo at index 0 matches the brand name 'Agencia creativa - Hacemos lo que se necesite' and is located in the header, making it the primary brand logo.",
+    "confidence": 0.95
+  },
+  "personality": {
+    "tone": "modern",
+    "energy": "medium",
+    "targetAudience": "businesses and creative professionals"
+  },
+  "designSystem": {
+    "framework": "unknown",
+    "componentLibrary": null
+  },
+  "confidence": {
+    "buttons": 0.9,
+    "colors": 0.95,
+    "overall": 0.925
+  }
+}

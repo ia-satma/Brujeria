@@ -12,6 +12,19 @@ import { getAgentConfigRegistry, type RegisteredAgentName } from "./config/agent
 import { performMetacognition, type MetacognitionResult } from "./metacognition-service";
 import { getEvolutionService } from "./evolution-service";
 import { getSubagentFactory, type SubagentExecutionResult } from "./skills";
+import {
+  getCircuitBreaker,
+  getAllCircuitBreakers,
+  resetAllCircuitBreakers,
+  retryWithBackoff,
+  RETRY_PRESETS,
+  executeWithFallback,
+  executeSubagentWithFallback,
+  getResilienceStats,
+  clearResilienceCache,
+  type CircuitBreakerSnapshot,
+  type ResilienceStats,
+} from "./resilience";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY!,
@@ -715,15 +728,13 @@ Return ONLY valid JSON:
 
 const API_TIMEOUT_MS = 60000;
 
-async function runSubagent(
+async function runSubagentCore(
   name: string,
   prompt: string,
   context: string,
   log?: LogCallback,
   abortSignal?: AbortSignal
 ): Promise<SubAgentResult> {
-  log?.(`    > [${name}] Analyzing...`);
-  
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
   
@@ -746,8 +757,6 @@ async function runSubagent(
     
     const result = JSON.parse(completion.choices[0].message.content || '{}');
     
-    log?.(`    > [${name}] Score: ${result.score}/10 - ${result.finding}`);
-    
     return {
       name,
       finding: result.finding || 'Analysis complete',
@@ -758,23 +767,39 @@ async function runSubagent(
     clearTimeout(timeoutId);
     
     if (error.name === 'AbortError' || controller.signal.aborted) {
-      log?.(`    > [${name}] TIMEOUT: Request exceeded ${API_TIMEOUT_MS/1000}s`);
-      return {
-        name,
-        finding: 'Analysis timed out',
-        score: 5,
-        details: ['Request timeout - try again later'],
-      };
+      throw new Error(`Timeout: Request exceeded ${API_TIMEOUT_MS/1000}s`);
     }
     
-    log?.(`    > [${name}] ERROR: ${error}`);
-    return {
-      name,
-      finding: 'Analysis failed',
-      score: 5,
-      details: ['Error during analysis'],
-    };
+    throw error;
   }
+}
+
+async function runSubagent(
+  name: string,
+  prompt: string,
+  context: string,
+  log?: LogCallback,
+  abortSignal?: AbortSignal,
+  parentAgentName: string = 'Agent'
+): Promise<SubAgentResult> {
+  log?.(`    > [${name}] Analyzing...`);
+  
+  const result = await executeSubagentWithFallback(
+    name,
+    parentAgentName,
+    async () => {
+      return await runSubagentCore(name, prompt, context, log, abortSignal);
+    },
+    {
+      useFallback: true,
+      fallbackTimeout: 30000,
+      retryConfig: RETRY_PRESETS.llmApi,
+    },
+    log
+  );
+
+  log?.(`    > [${name}] Score: ${result.score}/10 - ${result.finding}`);
+  return result;
 }
 
 async function runDynamicSubagentsForAgent(
@@ -1065,9 +1090,9 @@ async function runVisualAestheticsAgent(content: SiteContent, log?: LogCallback)
   
   const [staticResults, dynamicResults] = await Promise.all([
     Promise.all([
-      runSubagent('Color_Palette_Analyzer', getSubagentPromptFromRegistry("Visual_Aesthetics_Agent", "color_palette_analyzer"), context, log),
-      runSubagent('Typo_Readability_Checker', getSubagentPromptFromRegistry("Visual_Aesthetics_Agent", "typo_readability_checker"), context, log),
-      runSubagent('Design_Trend_Evaluator', getSubagentPromptFromRegistry("Visual_Aesthetics_Agent", "design_trend_evaluator"), context, log),
+      runSubagent('Color_Palette_Analyzer', getSubagentPromptFromRegistry("Visual_Aesthetics_Agent", "color_palette_analyzer"), context, log, undefined, "Visual_Aesthetics_Agent"),
+      runSubagent('Typo_Readability_Checker', getSubagentPromptFromRegistry("Visual_Aesthetics_Agent", "typo_readability_checker"), context, log, undefined, "Visual_Aesthetics_Agent"),
+      runSubagent('Design_Trend_Evaluator', getSubagentPromptFromRegistry("Visual_Aesthetics_Agent", "design_trend_evaluator"), context, log, undefined, "Visual_Aesthetics_Agent"),
     ]),
     runDynamicSubagentsForAgent("Visual_Aesthetics_Agent", context, "always", log),
   ]);
@@ -1137,9 +1162,9 @@ async function runUXNavigationAgent(content: SiteContent, log?: LogCallback): Pr
   
   const [staticResults, dynamicResults] = await Promise.all([
     Promise.all([
-      runSubagent('Information_Architecture_Mapper', getSubagentPromptFromRegistry("UX_Navigation_Agent", "information_architecture_mapper"), context, log),
-      runSubagent('CTA_Effectiveness_Scorer', getSubagentPromptFromRegistry("UX_Navigation_Agent", "cta_effectiveness_scorer"), context, log),
-      runSubagent('Responsive_Design_Inferrer', getSubagentPromptFromRegistry("UX_Navigation_Agent", "responsive_design_inferrer"), context, log),
+      runSubagent('Information_Architecture_Mapper', getSubagentPromptFromRegistry("UX_Navigation_Agent", "information_architecture_mapper"), context, log, undefined, "UX_Navigation_Agent"),
+      runSubagent('CTA_Effectiveness_Scorer', getSubagentPromptFromRegistry("UX_Navigation_Agent", "cta_effectiveness_scorer"), context, log, undefined, "UX_Navigation_Agent"),
+      runSubagent('Responsive_Design_Inferrer', getSubagentPromptFromRegistry("UX_Navigation_Agent", "responsive_design_inferrer"), context, log, undefined, "UX_Navigation_Agent"),
     ]),
     runDynamicSubagentsForAgent("UX_Navigation_Agent", context, "always", log),
   ]);
@@ -1209,9 +1234,9 @@ async function runContentStorytellingAgent(content: SiteContent, log?: LogCallba
   
   const [staticResults, dynamicResults] = await Promise.all([
     Promise.all([
-      runSubagent('Brand_Voice_Validator', getSubagentPromptFromRegistry("Content_Storytelling_Agent", "brand_voice_validator"), context, log),
-      runSubagent('Thought_Leadership_Scrutinizer', getSubagentPromptFromRegistry("Content_Storytelling_Agent", "thought_leadership_scrutinizer"), context, log),
-      runSubagent('Credibility_Evidence_Collector', getSubagentPromptFromRegistry("Content_Storytelling_Agent", "credibility_evidence_collector"), context, log),
+      runSubagent('Brand_Voice_Validator', getSubagentPromptFromRegistry("Content_Storytelling_Agent", "brand_voice_validator"), context, log, undefined, "Content_Storytelling_Agent"),
+      runSubagent('Thought_Leadership_Scrutinizer', getSubagentPromptFromRegistry("Content_Storytelling_Agent", "thought_leadership_scrutinizer"), context, log, undefined, "Content_Storytelling_Agent"),
+      runSubagent('Credibility_Evidence_Collector', getSubagentPromptFromRegistry("Content_Storytelling_Agent", "credibility_evidence_collector"), context, log, undefined, "Content_Storytelling_Agent"),
     ]),
     runDynamicSubagentsForAgent("Content_Storytelling_Agent", context, "always", log),
   ]);
@@ -1281,9 +1306,9 @@ async function runTechnicalPerformanceAgent(content: SiteContent, log?: LogCallb
   
   const [staticResults, dynamicResults] = await Promise.all([
     Promise.all([
-      runSubagent('Page_Speed_Scorer', getSubagentPromptFromRegistry("Technical_Performance_Agent", "page_speed_scorer"), context, log),
-      runSubagent('SEO_Metadata_Inspector', getSubagentPromptFromRegistry("Technical_Performance_Agent", "seo_metadata_inspector"), context, log),
-      runSubagent('Content_Markup_Validator', getSubagentPromptFromRegistry("Technical_Performance_Agent", "content_markup_validator"), context, log),
+      runSubagent('Page_Speed_Scorer', getSubagentPromptFromRegistry("Technical_Performance_Agent", "page_speed_scorer"), context, log, undefined, "Technical_Performance_Agent"),
+      runSubagent('SEO_Metadata_Inspector', getSubagentPromptFromRegistry("Technical_Performance_Agent", "seo_metadata_inspector"), context, log, undefined, "Technical_Performance_Agent"),
+      runSubagent('Content_Markup_Validator', getSubagentPromptFromRegistry("Technical_Performance_Agent", "content_markup_validator"), context, log, undefined, "Technical_Performance_Agent"),
     ]),
     runDynamicSubagentsForAgent("Technical_Performance_Agent", context, "always", log),
   ]);
@@ -1346,25 +1371,66 @@ export interface ParallelAgentResults {
   technical_performance: AnalysisSection;
 }
 
+export interface ParallelAgentExecutionInfo {
+  results: ParallelAgentResults;
+  executionStats: {
+    visual_design: { source: string; retryAttempts: number; circuitState: string };
+    user_experience: { source: string; retryAttempts: number; circuitState: string };
+    content_quality: { source: string; retryAttempts: number; circuitState: string };
+    technical_performance: { source: string; retryAttempts: number; circuitState: string };
+  };
+}
+
+function generateCacheKey(url: string, agentName: string): string {
+  const urlHash = url.replace(/[^a-zA-Z0-9]/g, '_').slice(0, 50);
+  return `${agentName}:${urlHash}`;
+}
+
 export async function runAllAgentsInParallel(
   content: SiteContent,
   log?: LogCallback
 ): Promise<ParallelAgentResults> {
   
-  log?.(`[Benchmarking_Manager] Dispatching 4 Agents in PARALLEL...`);
+  log?.(`[Benchmarking_Manager] Dispatching 4 Agents in PARALLEL with resilience patterns...`);
   
-  const [vaaResult, unaResult, csaResult, tpaResult] = await Promise.all([
-    runVisualAestheticsAgent(content, log),
-    runUXNavigationAgent(content, log),
-    runContentStorytellingAgent(content, log),
-    runTechnicalPerformanceAgent(content, log),
+  const [vaaExecution, unaExecution, csaExecution, tpaExecution] = await Promise.all([
+    executeWithFallback(
+      'Visual_Aesthetics_Agent',
+      () => runVisualAestheticsAgent(content, log),
+      generateCacheKey(content.url, 'Visual_Aesthetics_Agent'),
+      {},
+      log
+    ),
+    executeWithFallback(
+      'UX_Navigation_Agent',
+      () => runUXNavigationAgent(content, log),
+      generateCacheKey(content.url, 'UX_Navigation_Agent'),
+      {},
+      log
+    ),
+    executeWithFallback(
+      'Content_Storytelling_Agent',
+      () => runContentStorytellingAgent(content, log),
+      generateCacheKey(content.url, 'Content_Storytelling_Agent'),
+      {},
+      log
+    ),
+    executeWithFallback(
+      'Technical_Performance_Agent',
+      () => runTechnicalPerformanceAgent(content, log),
+      generateCacheKey(content.url, 'Technical_Performance_Agent'),
+      {},
+      log
+    ),
   ]);
 
+  log?.(`[Benchmarking_Manager] Execution sources: VAA=${vaaExecution.source}, UNA=${unaExecution.source}, CSA=${csaExecution.source}, TPA=${tpaExecution.source}`);
+
   return {
-    visual_design: vaaResult,
-    user_experience: unaResult,
-    content_quality: csaResult,
-    technical_performance: tpaResult,
+    visual_design: vaaExecution.result,
+    user_experience: unaExecution.result,
+    content_quality: csaExecution.result,
+    technical_performance: tpaExecution.result,
   };
 }
 
@@ -2011,4 +2077,24 @@ export function generateCompletionCriteria(): CompletionCriteria {
     phase_1: "P1-HIGH tasks completed, baseline metrics established",
     phase_2: "P2-MEDIUM tasks completed, differentiators implemented"
   };
+}
+
+// ============================================================================
+// RESILIENCE API EXPORTS
+// ============================================================================
+
+export function getAgentResilienceStats(): ResilienceStats {
+  return getResilienceStats();
+}
+
+export function getCircuitBreakerSnapshots(): CircuitBreakerSnapshot[] {
+  return getAllCircuitBreakers();
+}
+
+export function resetAgentCircuitBreakers(): void {
+  resetAllCircuitBreakers();
+}
+
+export function clearAgentResilienceCache(): void {
+  clearResilienceCache();
 }
