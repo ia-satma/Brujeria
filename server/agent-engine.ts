@@ -11,6 +11,7 @@ import { extractPatternsAfterAnalysis } from "./autonomy-engine";
 import { getAgentConfigRegistry, type RegisteredAgentName } from "./config/agent-config-registry";
 import { performMetacognition, type MetacognitionResult } from "./metacognition-service";
 import { getEvolutionService } from "./evolution-service";
+import { getSubagentFactory, type SubagentExecutionResult } from "./skills";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY!,
@@ -776,6 +777,118 @@ async function runSubagent(
   }
 }
 
+async function runDynamicSubagentsForAgent(
+  parentAgentId: string,
+  context: string,
+  condition: string = "always",
+  log?: LogCallback
+): Promise<SubAgentResult[]> {
+  try {
+    const factory = getSubagentFactory();
+    const activeSubagents = await factory.getActiveSubagentsForCondition(parentAgentId, condition);
+    
+    if (activeSubagents.length === 0) {
+      return [];
+    }
+    
+    log?.(`  [${parentAgentId}] Executing ${activeSubagents.length} dynamic subagents...`);
+    
+    const results = await Promise.all(
+      activeSubagents.map(async (subagent) => {
+        try {
+          const execResult = await factory.executeSubagent(
+            subagent.id,
+            parentAgentId,
+            context,
+            log
+          );
+          
+          await factory.evolveSkillExpertise(
+            parentAgentId,
+            subagent.skills[0],
+            { score: execResult.score, successRate: execResult.confidence }
+          );
+          
+          return {
+            name: `[Dynamic] ${execResult.name}`,
+            finding: execResult.finding,
+            score: execResult.score,
+            details: execResult.details,
+          } as SubAgentResult;
+        } catch (error: any) {
+          log?.(`    > [${subagent.name}] ERROR: ${error.message}`);
+          return {
+            name: `[Dynamic] ${subagent.name}`,
+            finding: 'Dynamic subagent execution failed',
+            score: 5,
+            details: [error.message || 'Unknown error'],
+          } as SubAgentResult;
+        }
+      })
+    );
+    
+    return results;
+  } catch (error: any) {
+    log?.(`  [${parentAgentId}] Dynamic subagent execution error: ${error.message}`);
+    return [];
+  }
+}
+
+async function learnFromAnalysis(
+  parentAgentId: string,
+  analysisResult: AnalysisSection,
+  context: string,
+  log?: LogCallback
+): Promise<void> {
+  try {
+    const factory = getSubagentFactory();
+    const skills = await factory.listSkills(parentAgentId);
+    
+    if (skills.length === 0) {
+      return;
+    }
+    
+    for (const result of analysisResult.subagent_results || []) {
+      if (result.score >= 8 && result.details.length > 0) {
+        const matchingSkill = skills.find(s => 
+          result.finding.toLowerCase().includes(s.specialization.subDomain.toLowerCase()) ||
+          s.name.toLowerCase().includes(result.name.toLowerCase().replace('_', ' '))
+        );
+        
+        if (matchingSkill) {
+          await factory.addLearningToSkill(parentAgentId, matchingSkill.id, {
+            type: 'case_study',
+            content: {
+              title: `High-scoring analysis: ${result.finding.slice(0, 50)}`,
+              industry: 'general',
+              problem: 'Website analysis',
+              strategy: result.finding,
+              actions: result.details,
+              results: {
+                metrics: [{
+                  metric: 'analysis_score',
+                  before: 'N/A',
+                  after: String(result.score),
+                  improvement: 'N/A',
+                }],
+                summary: `Score: ${result.score}/10`,
+              },
+              lessonsLearned: result.details.slice(0, 2),
+              applicablePatterns: [result.name],
+            },
+            source: `Analysis of ${context.slice(0, 100)}`,
+            confidence: result.score / 10,
+          });
+          
+          log?.(`  [${parentAgentId}] Learned from ${result.name} -> Skill: ${matchingSkill.name}`);
+        }
+      }
+    }
+  } catch (error: any) {
+    console.error(`[learnFromAnalysis] Error for ${parentAgentId}:`, error.message);
+  }
+}
+
 function buildContext(content: SiteContent): string {
   let pagesSection = '';
   
@@ -950,29 +1063,37 @@ async function runVisualAestheticsAgent(content: SiteContent, log?: LogCallback)
   const knowledgeContext = buildPriorKnowledgeContext(priorKnowledge);
   const context = buildContext(content) + knowledgeContext;
   
-  const [colorResult, typoResult, trendResult] = await Promise.all([
-    runSubagent('Color_Palette_Analyzer', getSubagentPromptFromRegistry("Visual_Aesthetics_Agent", "color_palette_analyzer"), context, log),
-    runSubagent('Typo_Readability_Checker', getSubagentPromptFromRegistry("Visual_Aesthetics_Agent", "typo_readability_checker"), context, log),
-    runSubagent('Design_Trend_Evaluator', getSubagentPromptFromRegistry("Visual_Aesthetics_Agent", "design_trend_evaluator"), context, log),
+  const [staticResults, dynamicResults] = await Promise.all([
+    Promise.all([
+      runSubagent('Color_Palette_Analyzer', getSubagentPromptFromRegistry("Visual_Aesthetics_Agent", "color_palette_analyzer"), context, log),
+      runSubagent('Typo_Readability_Checker', getSubagentPromptFromRegistry("Visual_Aesthetics_Agent", "typo_readability_checker"), context, log),
+      runSubagent('Design_Trend_Evaluator', getSubagentPromptFromRegistry("Visual_Aesthetics_Agent", "design_trend_evaluator"), context, log),
+    ]),
+    runDynamicSubagentsForAgent("Visual_Aesthetics_Agent", context, "always", log),
   ]);
 
-  const aggregated = aggregateSubagentResults([colorResult, typoResult, trendResult]);
+  const [colorResult, typoResult, trendResult] = staticResults;
+  const allResults = [...staticResults, ...dynamicResults];
+  
+  const aggregated = aggregateSubagentResults(allResults);
   
   const analysisResult: AnalysisSection = {
     ...aggregated,
-    subagent_results: [colorResult, typoResult, trendResult],
+    subagent_results: allResults,
   };
   
   const metacognition = performMetacognition(
     "Visual_Aesthetics_Agent" as RegisteredAgentName,
     analysisResult,
-    [colorResult, typoResult, trendResult],
+    allResults,
     { htmlLength: content.html.length, pagesScraped: content.pagesScraped, hasMetadata: !!content.metaDescription }
   );
   analysisResult.metacognition = metacognition;
   log?.(`  [Visual_Aesthetics_Agent] Confidence: ${metacognition.confidence.overallConfidence.toFixed(2)}`);
   
   await saveAgentAnalysisResult(AGENT_NAMES.VISUAL_AESTHETICS_AGENT, content.url, analysisResult, log);
+  
+  await learnFromAnalysis("Visual_Aesthetics_Agent", analysisResult, context, log);
   
   try {
     const evolutionService = getEvolutionService();
@@ -982,7 +1103,8 @@ async function runVisualAestheticsAgent(content: SiteContent, log?: LogCallback)
       details: {
         url: content.url,
         score: analysisResult.score,
-        confidence: analysisResult.metacognition?.confidence.overallConfidence
+        confidence: analysisResult.metacognition?.confidence.overallConfidence,
+        dynamicSubagentsUsed: dynamicResults.length
       }
     });
     if (analysisResult.metacognition) {
@@ -992,7 +1114,7 @@ async function runVisualAestheticsAgent(content: SiteContent, log?: LogCallback)
     console.error('[Evolution] Visual_Aesthetics_Agent tracking failed:', error);
   }
   
-  log?.(`[Visual_Aesthetics_Agent] COMPLETED - Score: ${aggregated.score}/10`);
+  log?.(`[Visual_Aesthetics_Agent] COMPLETED - Score: ${aggregated.score}/10 (${dynamicResults.length} dynamic subagents)`);
   
   return analysisResult;
 }
@@ -1013,29 +1135,37 @@ async function runUXNavigationAgent(content: SiteContent, log?: LogCallback): Pr
   const knowledgeContext = buildPriorKnowledgeContext(priorKnowledge);
   const context = buildContext(content) + knowledgeContext;
   
-  const [iaResult, ctaResult, responsiveResult] = await Promise.all([
-    runSubagent('Information_Architecture_Mapper', getSubagentPromptFromRegistry("UX_Navigation_Agent", "information_architecture_mapper"), context, log),
-    runSubagent('CTA_Effectiveness_Scorer', getSubagentPromptFromRegistry("UX_Navigation_Agent", "cta_effectiveness_scorer"), context, log),
-    runSubagent('Responsive_Design_Inferrer', getSubagentPromptFromRegistry("UX_Navigation_Agent", "responsive_design_inferrer"), context, log),
+  const [staticResults, dynamicResults] = await Promise.all([
+    Promise.all([
+      runSubagent('Information_Architecture_Mapper', getSubagentPromptFromRegistry("UX_Navigation_Agent", "information_architecture_mapper"), context, log),
+      runSubagent('CTA_Effectiveness_Scorer', getSubagentPromptFromRegistry("UX_Navigation_Agent", "cta_effectiveness_scorer"), context, log),
+      runSubagent('Responsive_Design_Inferrer', getSubagentPromptFromRegistry("UX_Navigation_Agent", "responsive_design_inferrer"), context, log),
+    ]),
+    runDynamicSubagentsForAgent("UX_Navigation_Agent", context, "always", log),
   ]);
+  
+  const [iaResult, ctaResult, responsiveResult] = staticResults;
+  const allResults = [...staticResults, ...dynamicResults];
 
-  const aggregated = aggregateSubagentResults([iaResult, ctaResult, responsiveResult]);
+  const aggregated = aggregateSubagentResults(allResults);
   
   const analysisResult: AnalysisSection = {
     ...aggregated,
-    subagent_results: [iaResult, ctaResult, responsiveResult],
+    subagent_results: allResults,
   };
   
   const metacognition = performMetacognition(
     "UX_Navigation_Agent" as RegisteredAgentName,
     analysisResult,
-    [iaResult, ctaResult, responsiveResult],
+    allResults,
     { htmlLength: content.html.length, pagesScraped: content.pagesScraped, hasMetadata: !!content.metaDescription }
   );
   analysisResult.metacognition = metacognition;
   log?.(`  [UX_Navigation_Agent] Confidence: ${metacognition.confidence.overallConfidence.toFixed(2)}`);
   
   await saveAgentAnalysisResult(AGENT_NAMES.UX_NAVIGATION_AGENT, content.url, analysisResult, log);
+  
+  await learnFromAnalysis("UX_Navigation_Agent", analysisResult, context, log);
   
   try {
     const evolutionService = getEvolutionService();
@@ -1045,7 +1175,8 @@ async function runUXNavigationAgent(content: SiteContent, log?: LogCallback): Pr
       details: {
         url: content.url,
         score: analysisResult.score,
-        confidence: analysisResult.metacognition?.confidence.overallConfidence
+        confidence: analysisResult.metacognition?.confidence.overallConfidence,
+        dynamicSubagentsUsed: dynamicResults.length
       }
     });
     if (analysisResult.metacognition) {
@@ -1055,7 +1186,7 @@ async function runUXNavigationAgent(content: SiteContent, log?: LogCallback): Pr
     console.error('[Evolution] UX_Navigation_Agent tracking failed:', error);
   }
   
-  log?.(`[UX_Navigation_Agent] COMPLETED - Score: ${aggregated.score}/10`);
+  log?.(`[UX_Navigation_Agent] COMPLETED - Score: ${aggregated.score}/10 (${dynamicResults.length} dynamic subagents)`);
   
   return analysisResult;
 }
@@ -1076,29 +1207,37 @@ async function runContentStorytellingAgent(content: SiteContent, log?: LogCallba
   const knowledgeContext = buildPriorKnowledgeContext(priorKnowledge);
   const context = buildContext(content) + knowledgeContext;
   
-  const [voiceResult, thoughtResult, credibilityResult] = await Promise.all([
-    runSubagent('Brand_Voice_Validator', getSubagentPromptFromRegistry("Content_Storytelling_Agent", "brand_voice_validator"), context, log),
-    runSubagent('Thought_Leadership_Scrutinizer', getSubagentPromptFromRegistry("Content_Storytelling_Agent", "thought_leadership_scrutinizer"), context, log),
-    runSubagent('Credibility_Evidence_Collector', getSubagentPromptFromRegistry("Content_Storytelling_Agent", "credibility_evidence_collector"), context, log),
+  const [staticResults, dynamicResults] = await Promise.all([
+    Promise.all([
+      runSubagent('Brand_Voice_Validator', getSubagentPromptFromRegistry("Content_Storytelling_Agent", "brand_voice_validator"), context, log),
+      runSubagent('Thought_Leadership_Scrutinizer', getSubagentPromptFromRegistry("Content_Storytelling_Agent", "thought_leadership_scrutinizer"), context, log),
+      runSubagent('Credibility_Evidence_Collector', getSubagentPromptFromRegistry("Content_Storytelling_Agent", "credibility_evidence_collector"), context, log),
+    ]),
+    runDynamicSubagentsForAgent("Content_Storytelling_Agent", context, "always", log),
   ]);
+  
+  const [voiceResult, thoughtResult, credibilityResult] = staticResults;
+  const allResults = [...staticResults, ...dynamicResults];
 
-  const aggregated = aggregateSubagentResults([voiceResult, thoughtResult, credibilityResult]);
+  const aggregated = aggregateSubagentResults(allResults);
   
   const analysisResult: AnalysisSection = {
     ...aggregated,
-    subagent_results: [voiceResult, thoughtResult, credibilityResult],
+    subagent_results: allResults,
   };
   
   const metacognition = performMetacognition(
     "Content_Storytelling_Agent" as RegisteredAgentName,
     analysisResult,
-    [voiceResult, thoughtResult, credibilityResult],
+    allResults,
     { htmlLength: content.html.length, pagesScraped: content.pagesScraped, hasMetadata: !!content.metaDescription }
   );
   analysisResult.metacognition = metacognition;
   log?.(`  [Content_Storytelling_Agent] Confidence: ${metacognition.confidence.overallConfidence.toFixed(2)}`);
   
   await saveAgentAnalysisResult(AGENT_NAMES.CONTENT_STORYTELLING_AGENT, content.url, analysisResult, log);
+  
+  await learnFromAnalysis("Content_Storytelling_Agent", analysisResult, context, log);
   
   try {
     const evolutionService = getEvolutionService();
@@ -1108,7 +1247,8 @@ async function runContentStorytellingAgent(content: SiteContent, log?: LogCallba
       details: {
         url: content.url,
         score: analysisResult.score,
-        confidence: analysisResult.metacognition?.confidence.overallConfidence
+        confidence: analysisResult.metacognition?.confidence.overallConfidence,
+        dynamicSubagentsUsed: dynamicResults.length
       }
     });
     if (analysisResult.metacognition) {
@@ -1118,7 +1258,7 @@ async function runContentStorytellingAgent(content: SiteContent, log?: LogCallba
     console.error('[Evolution] Content_Storytelling_Agent tracking failed:', error);
   }
   
-  log?.(`[Content_Storytelling_Agent] COMPLETED - Score: ${aggregated.score}/10`);
+  log?.(`[Content_Storytelling_Agent] COMPLETED - Score: ${aggregated.score}/10 (${dynamicResults.length} dynamic subagents)`);
   
   return analysisResult;
 }
@@ -1139,29 +1279,37 @@ async function runTechnicalPerformanceAgent(content: SiteContent, log?: LogCallb
   const knowledgeContext = buildPriorKnowledgeContext(priorKnowledge);
   const context = buildContext(content) + knowledgeContext;
   
-  const [speedResult, seoResult, markupResult] = await Promise.all([
-    runSubagent('Page_Speed_Scorer', getSubagentPromptFromRegistry("Technical_Performance_Agent", "page_speed_scorer"), context, log),
-    runSubagent('SEO_Metadata_Inspector', getSubagentPromptFromRegistry("Technical_Performance_Agent", "seo_metadata_inspector"), context, log),
-    runSubagent('Content_Markup_Validator', getSubagentPromptFromRegistry("Technical_Performance_Agent", "content_markup_validator"), context, log),
+  const [staticResults, dynamicResults] = await Promise.all([
+    Promise.all([
+      runSubagent('Page_Speed_Scorer', getSubagentPromptFromRegistry("Technical_Performance_Agent", "page_speed_scorer"), context, log),
+      runSubagent('SEO_Metadata_Inspector', getSubagentPromptFromRegistry("Technical_Performance_Agent", "seo_metadata_inspector"), context, log),
+      runSubagent('Content_Markup_Validator', getSubagentPromptFromRegistry("Technical_Performance_Agent", "content_markup_validator"), context, log),
+    ]),
+    runDynamicSubagentsForAgent("Technical_Performance_Agent", context, "always", log),
   ]);
+  
+  const [speedResult, seoResult, markupResult] = staticResults;
+  const allResults = [...staticResults, ...dynamicResults];
 
-  const aggregated = aggregateSubagentResults([speedResult, seoResult, markupResult]);
+  const aggregated = aggregateSubagentResults(allResults);
   
   const analysisResult: AnalysisSection = {
     ...aggregated,
-    subagent_results: [speedResult, seoResult, markupResult],
+    subagent_results: allResults,
   };
   
   const metacognition = performMetacognition(
     "Technical_Performance_Agent" as RegisteredAgentName,
     analysisResult,
-    [speedResult, seoResult, markupResult],
+    allResults,
     { htmlLength: content.html.length, pagesScraped: content.pagesScraped, hasMetadata: !!content.metaDescription }
   );
   analysisResult.metacognition = metacognition;
   log?.(`  [Technical_Performance_Agent] Confidence: ${metacognition.confidence.overallConfidence.toFixed(2)}`);
   
   await saveAgentAnalysisResult(AGENT_NAMES.TECHNICAL_PERFORMANCE_AGENT, content.url, analysisResult, log);
+  
+  await learnFromAnalysis("Technical_Performance_Agent", analysisResult, context, log);
   
   try {
     const evolutionService = getEvolutionService();
@@ -1171,7 +1319,8 @@ async function runTechnicalPerformanceAgent(content: SiteContent, log?: LogCallb
       details: {
         url: content.url,
         score: analysisResult.score,
-        confidence: analysisResult.metacognition?.confidence.overallConfidence
+        confidence: analysisResult.metacognition?.confidence.overallConfidence,
+        dynamicSubagentsUsed: dynamicResults.length
       }
     });
     if (analysisResult.metacognition) {
@@ -1181,7 +1330,7 @@ async function runTechnicalPerformanceAgent(content: SiteContent, log?: LogCallb
     console.error('[Evolution] Technical_Performance_Agent tracking failed:', error);
   }
   
-  log?.(`[Technical_Performance_Agent] COMPLETED - Score: ${aggregated.score}/10`);
+  log?.(`[Technical_Performance_Agent] COMPLETED - Score: ${aggregated.score}/10 (${dynamicResults.length} dynamic subagents)`);
   
   return analysisResult;
 }

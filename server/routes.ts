@@ -809,5 +809,394 @@ export async function registerRoutes(
     }
   });
 
+  // ============================================================================
+  // DYNAMIC SKILLS & SUBAGENTS API
+  // ============================================================================
+
+  app.get("/api/skills/:agentName", async (req, res) => {
+    try {
+      const { getSubagentFactory } = await import("./skills");
+      const factory = getSubagentFactory();
+      const agentName = req.params.agentName;
+      
+      const skills = await factory.listSkills(agentName);
+      
+      res.json({
+        success: true,
+        agentName,
+        count: skills.length,
+        skills: skills.map(s => ({
+          id: s.id,
+          name: s.name,
+          version: s.version,
+          domain: s.specialization.domain,
+          subDomain: s.specialization.subDomain,
+          expertiseLevel: s.specialization.expertiseLevel,
+          usageCount: s.performanceMetrics.usageCount,
+          averageScore: s.performanceMetrics.averageScore,
+        })),
+      });
+    } catch (error) {
+      console.error("List skills error:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
+  const createSkillSchema = z.object({
+    name: z.string().min(1),
+    domain: z.string().min(1),
+    subDomain: z.string().min(1),
+    initialKnowledge: z.object({
+      theoreticalFrameworks: z.array(z.any()).optional(),
+      glossary: z.array(z.any()).optional(),
+      benchmarks: z.array(z.any()).optional(),
+      industryStandards: z.array(z.any()).optional(),
+    }).optional(),
+  });
+
+  app.post("/api/skills/:agentName", async (req, res) => {
+    try {
+      const { getSubagentFactory } = await import("./skills");
+      const factory = getSubagentFactory();
+      const agentName = req.params.agentName;
+      
+      const parsed = createSkillSchema.parse(req.body);
+      
+      const skill = await factory.createSkill(
+        agentName,
+        parsed.name,
+        parsed.domain,
+        parsed.subDomain,
+        parsed.initialKnowledge
+      );
+      
+      res.json({
+        success: true,
+        skill: {
+          id: skill.id,
+          name: skill.name,
+          version: skill.version,
+          domain: skill.specialization.domain,
+          subDomain: skill.specialization.subDomain,
+          expertiseLevel: skill.specialization.expertiseLevel,
+        },
+      });
+    } catch (error) {
+      console.error("Create skill error:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          error: "Invalid request",
+          details: error.errors,
+        });
+      }
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
+  app.get("/api/skills/:agentName/:skillId", async (req, res) => {
+    try {
+      const { getSubagentFactory } = await import("./skills");
+      const factory = getSubagentFactory();
+      const { agentName, skillId } = req.params;
+      
+      const skill = await factory.getSkill(agentName, skillId);
+      
+      if (!skill) {
+        return res.status(404).json({
+          success: false,
+          error: `Skill ${skillId} not found for agent ${agentName}`,
+        });
+      }
+      
+      res.json({
+        success: true,
+        skill,
+      });
+    } catch (error) {
+      console.error("Get skill error:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
+  const addLearningSchema = z.object({
+    type: z.enum(['benchmark', 'case_study', 'framework', 'trend', 'glossary']),
+    content: z.record(z.string(), z.unknown()),
+    source: z.string(),
+    confidence: z.number().min(0).max(1),
+  });
+
+  app.post("/api/skills/:agentName/:skillId/learn", async (req, res) => {
+    try {
+      const { getSubagentFactory } = await import("./skills");
+      const factory = getSubagentFactory();
+      const { agentName, skillId } = req.params;
+      
+      const learning = addLearningSchema.parse(req.body);
+      
+      const updatedSkill = await factory.addLearningToSkill(agentName, skillId, learning);
+      
+      if (!updatedSkill) {
+        return res.status(404).json({
+          success: false,
+          error: `Skill ${skillId} not found for agent ${agentName}`,
+        });
+      }
+      
+      res.json({
+        success: true,
+        message: `Added ${learning.type} to skill ${updatedSkill.name}`,
+        newVersion: updatedSkill.version,
+        evolutionHistory: updatedSkill.evolutionHistory.slice(-3),
+      });
+    } catch (error) {
+      console.error("Add learning error:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          error: "Invalid request",
+          details: error.errors,
+        });
+      }
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
+  app.get("/api/subagents/:agentName", async (req, res) => {
+    try {
+      const { getSubagentFactory } = await import("./skills");
+      const factory = getSubagentFactory();
+      const agentName = req.params.agentName;
+      
+      const subagents = await factory.listSubagents(agentName);
+      
+      res.json({
+        success: true,
+        agentName,
+        count: subagents.length,
+        subagents: subagents.map(s => ({
+          id: s.id,
+          name: s.name,
+          purpose: s.purpose,
+          skillCount: s.skills.length,
+          isActive: s.metadata.isActive,
+          executionCount: s.metadata.executionCount,
+          averageScore: s.metadata.averageScore,
+          lastExecuted: s.metadata.lastExecuted,
+        })),
+      });
+    } catch (error) {
+      console.error("List subagents error:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
+  const createSubagentSchema = z.object({
+    name: z.string().min(1),
+    purpose: z.string().min(1),
+    skillIds: z.array(z.string()).min(1),
+    activationConditions: z.array(z.string()).optional(),
+  });
+
+  app.post("/api/subagents/:agentName", async (req, res) => {
+    try {
+      const { getSubagentFactory } = await import("./skills");
+      const factory = getSubagentFactory();
+      const agentName = req.params.agentName;
+      
+      const parsed = createSubagentSchema.parse(req.body);
+      
+      const subagent = await factory.createDynamicSubagent(
+        agentName,
+        parsed.name,
+        parsed.purpose,
+        parsed.skillIds,
+        parsed.activationConditions
+      );
+      
+      res.json({
+        success: true,
+        subagent: {
+          id: subagent.id,
+          name: subagent.name,
+          purpose: subagent.purpose,
+          skillCount: subagent.skills.length,
+          isActive: subagent.metadata.isActive,
+        },
+      });
+    } catch (error) {
+      console.error("Create subagent error:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          error: "Invalid request",
+          details: error.errors,
+        });
+      }
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
+  app.get("/api/subagents/:agentName/:subagentId", async (req, res) => {
+    try {
+      const { getSubagentFactory } = await import("./skills");
+      const factory = getSubagentFactory();
+      const { agentName, subagentId } = req.params;
+      
+      const subagent = await factory.getSubagent(agentName, subagentId);
+      
+      if (!subagent) {
+        return res.status(404).json({
+          success: false,
+          error: `Subagent ${subagentId} not found for agent ${agentName}`,
+        });
+      }
+      
+      res.json({
+        success: true,
+        subagent,
+      });
+    } catch (error) {
+      console.error("Get subagent error:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
+  const executeSubagentSchema = z.object({
+    context: z.string().min(1),
+  });
+
+  app.post("/api/subagents/:agentName/:subagentId/execute", async (req, res) => {
+    try {
+      const { getSubagentFactory } = await import("./skills");
+      const factory = getSubagentFactory();
+      const { agentName, subagentId } = req.params;
+      
+      const parsed = executeSubagentSchema.parse(req.body);
+      
+      const logs: string[] = [];
+      const log = (msg: string) => logs.push(msg);
+      
+      const result = await factory.executeSubagent(subagentId, agentName, parsed.context, log);
+      
+      res.json({
+        success: true,
+        result,
+        logs,
+      });
+    } catch (error) {
+      console.error("Execute subagent error:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          error: "Invalid request",
+          details: error.errors,
+        });
+      }
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
+  app.post("/api/skills/:agentName/:skillId/evolve", async (req, res) => {
+    try {
+      const { getSubagentFactory } = await import("./skills");
+      const factory = getSubagentFactory();
+      const { agentName, skillId } = req.params;
+      
+      const performanceSchema = z.object({
+        score: z.number().min(0).max(10),
+        successRate: z.number().min(0).max(1),
+      });
+      
+      const performanceData = performanceSchema.parse(req.body);
+      
+      const updatedSkill = await factory.evolveSkillExpertise(agentName, skillId, performanceData);
+      
+      if (!updatedSkill) {
+        return res.status(404).json({
+          success: false,
+          error: `Skill ${skillId} not found for agent ${agentName}`,
+        });
+      }
+      
+      res.json({
+        success: true,
+        skillId: updatedSkill.id,
+        name: updatedSkill.name,
+        expertiseLevel: updatedSkill.specialization.expertiseLevel,
+        performanceMetrics: updatedSkill.performanceMetrics,
+      });
+    } catch (error) {
+      console.error("Evolve skill error:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          error: "Invalid request",
+          details: error.errors,
+        });
+      }
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
+  app.get("/api/skills/:agentName/recommendations", async (req, res) => {
+    try {
+      const { getSubagentFactory } = await import("./skills");
+      const factory = getSubagentFactory();
+      const agentName = req.params.agentName;
+      
+      const analysisHistorySchema = z.array(z.object({
+        domain: z.string(),
+        score: z.number(),
+        frequency: z.number(),
+      }));
+      
+      const history = req.query.history 
+        ? analysisHistorySchema.parse(JSON.parse(req.query.history as string))
+        : [];
+      
+      const recommendations = await factory.generateSpecializationRecommendations(agentName, history);
+      
+      res.json({
+        success: true,
+        agentName,
+        recommendations,
+      });
+    } catch (error) {
+      console.error("Get recommendations error:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
   return httpServer;
 }
