@@ -74,6 +74,65 @@ export interface ExtractedDomains {
 }
 
 // ============================================================================
+// LLM COUNCIL INTERFACES
+// ============================================================================
+
+export interface CouncilFinding {
+  issue: string;
+  severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+  impact: string;
+  evidence: string;
+}
+
+export interface CouncilOpinion {
+  persona: 'critic' | 'strategist' | 'innovator';
+  personaName: string;
+  analysis: string;
+  findings: CouncilFinding[];
+  confidence: number;
+}
+
+export interface PeerReviewEvaluation {
+  reviewed: string;
+  agree: string[];
+  disagree: string;
+  rank: number;
+}
+
+export interface PeerReview {
+  reviewer: 'critic' | 'strategist' | 'innovator';
+  evaluations: PeerReviewEvaluation[];
+  selfRank: number;
+  rationale: string;
+}
+
+export interface ShuffleMappingEntry {
+  reviewerIndex: number;
+  mapping: { [label: string]: number };
+}
+
+export interface Stage2Result {
+  reviews: PeerReview[];
+  shuffleMappings: ShuffleMappingEntry[];
+}
+
+export interface FinalRankedIssue {
+  issue: string;
+  priority: 'P0' | 'P1' | 'P2';
+  votes: number;
+  severity: string;
+}
+
+export interface CouncilResult {
+  consensusScore: number;
+  finalRanking: FinalRankedIssue[];
+  chairmanVerdict: string;
+  dissentingOpinions: string[];
+  stage1Opinions: CouncilOpinion[];
+  stage2Reviews: PeerReview[];
+}
+
+// ============================================================================
 // SCRAPING ORCHESTRATOR
 // ============================================================================
 
@@ -695,6 +754,142 @@ Return ONLY valid JSON:
 }`;
 
 // ============================================================================
+// LLM COUNCIL PERSONA PROMPTS
+// ============================================================================
+
+const COUNCIL_PERSONAS = {
+  critic: {
+    name: "Critical Analyst",
+    prompt: `You are a ruthless website auditor. Your job is to identify ALL failures, risks, and weaknesses.
+Do not soften your analysis. Quantify the impact of each problem.
+Prioritize issues that are causing conversion loss RIGHT NOW.
+Focus on critical flaws that competitors don't have.
+
+Analyze the website data and agent analysis results provided.
+
+Return ONLY valid JSON:
+{
+  "analysis": "Comprehensive critical analysis text...",
+  "findings": [
+    {
+      "issue": "Specific problem description",
+      "severity": "CRITICAL|HIGH|MEDIUM|LOW",
+      "impact": "Quantified business impact",
+      "evidence": "Specific data supporting this finding"
+    }
+  ],
+  "confidence": 0.94
+}`
+  },
+  strategist: {
+    name: "Business Strategist",
+    prompt: `You are a conversion and ROI consultant.
+Evaluate every element from a business perspective.
+Is the site optimized to capture high-value leads?
+Does the conversion funnel have leaks? Where?
+Compare to competitors and identify gaps.
+
+Analyze the website data and agent analysis results provided.
+
+Return ONLY valid JSON:
+{
+  "analysis": "Strategic business analysis text...",
+  "findings": [
+    {
+      "issue": "Specific problem description",
+      "severity": "CRITICAL|HIGH|MEDIUM|LOW",
+      "impact": "Quantified business impact",
+      "evidence": "Specific data supporting this finding"
+    }
+  ],
+  "confidence": 0.91
+}`
+  },
+  innovator: {
+    name: "UX Innovator",
+    prompt: `You are a visionary designer specialized in modern web experiences.
+Identify differentiation opportunities.
+What are industry leaders doing that this site isn't?
+Propose modern solutions and 2024-2025 trends.
+Focus on innovative improvements that would set this site apart.
+
+Analyze the website data and agent analysis results provided.
+
+Return ONLY valid JSON:
+{
+  "analysis": "Innovative UX analysis text...",
+  "findings": [
+    {
+      "issue": "Specific opportunity or improvement",
+      "severity": "CRITICAL|HIGH|MEDIUM|LOW",
+      "impact": "Quantified potential benefit",
+      "evidence": "Specific data supporting this finding"
+    }
+  ],
+  "confidence": 0.88
+}`
+  }
+};
+
+const PEER_REVIEW_PROMPT = `You are reviewing anonymous analyses of a website.
+Evaluate each analysis objectively based on quality of arguments, not personal bias.
+
+For each of the 3 analyses provided (Analysis A, B, C):
+1. Points you AGREE with (and why)
+2. Points you DISAGREE with (and why)
+3. Your RANKING of the 3 analyses (1=best, 3=worst)
+4. Justification for your ranking
+
+Return ONLY valid JSON:
+{
+  "evaluations": [
+    {
+      "reviewed": "Analysis A",
+      "agree": ["point1", "point2"],
+      "disagree": "reason for disagreement or 'None'",
+      "rank": 2
+    },
+    {
+      "reviewed": "Analysis B",
+      "agree": ["point1"],
+      "disagree": "reason for disagreement",
+      "rank": 1
+    },
+    {
+      "reviewed": "Analysis C",
+      "agree": ["point1"],
+      "disagree": "reason for disagreement",
+      "rank": 3
+    }
+  ],
+  "selfRank": 1,
+  "rationale": "Justification for the ranking"
+}`;
+
+const CHAIRMAN_PROMPT = `You are the Council Chairman. You have access to:
+1. The 3 initial opinions from Critic, Strategist, and Innovator
+2. The peer reviews from each council member
+3. Rankings from each reviewer
+
+Your job:
+1. Apply weighted Borda Count method (weight by severity: CRITICAL=4, HIGH=3, MEDIUM=2, LOW=1)
+2. Generate FINAL RANKING of issues to resolve
+3. Identify CONSENSUS points (unanimous agreement)
+4. Document DISSENTING opinions (important disagreements)
+5. Issue FINAL VERDICT with prioritized action plan
+
+Return ONLY valid JSON:
+{
+  "consensusScore": 0.87,
+  "finalRanking": [
+    {"issue": "Issue description", "priority": "P0", "votes": 3, "severity": "CRITICAL"},
+    {"issue": "Issue description", "priority": "P0", "votes": 2, "severity": "HIGH"}
+  ],
+  "chairmanVerdict": "Action plan text with prioritized recommendations...",
+  "dissentingOpinions": ["Minority opinion 1...", "Minority opinion 2..."]
+}`;
+
+// ============================================================================
 // SUBAGENT EXECUTION
 // ============================================================================
 
@@ -975,6 +1170,7 @@ export interface Report {
     innovative_opportunities: string[];
   };
   implementation_notes: string[];
+  councilResult?: CouncilResult;
 }
 
 const COMPARATIVE_PROMPT = `You are the COMPARATIVE_INSIGHTS_ENGINE, analyzing competitive positioning.
@@ -1059,5 +1255,398 @@ Provide strategic insights comparing the client to competitors. Be specific abou
       innovative_opportunities: [],
     },
     implementation_notes: result.implementation_notes || [],
+  };
+}
+
+// ============================================================================
+// LLM COUNCIL - 3-STAGE DELIBERATION SYSTEM
+// ============================================================================
+
+function buildCouncilContext(
+  clientAnalysis: SiteAnalysis,
+  competitorAnalyses: SiteAnalysis[]
+): string {
+  const avgCompetitorScore = competitorAnalyses.length > 0
+    ? (competitorAnalyses.reduce((sum, c) => sum + c.overall_score, 0) / competitorAnalyses.length).toFixed(1)
+    : 'N/A';
+    
+  return `
+=== CLIENT WEBSITE ANALYSIS ===
+URL: ${clientAnalysis.url}
+Overall Score: ${clientAnalysis.overall_score}/10 (Competitor avg: ${avgCompetitorScore})
+
+Visual Design: ${clientAnalysis.visual_design.score}/10
+- Observations: ${clientAnalysis.visual_design.observations}
+- Strengths: ${clientAnalysis.visual_design.strengths.join(', ')}
+- Weaknesses: ${clientAnalysis.visual_design.weaknesses.join(', ')}
+
+User Experience: ${clientAnalysis.user_experience.score}/10
+- Observations: ${clientAnalysis.user_experience.observations}
+- Strengths: ${clientAnalysis.user_experience.strengths.join(', ')}
+- Weaknesses: ${clientAnalysis.user_experience.weaknesses.join(', ')}
+
+Content Quality: ${clientAnalysis.content_quality.score}/10
+- Observations: ${clientAnalysis.content_quality.observations}
+- Strengths: ${clientAnalysis.content_quality.strengths.join(', ')}
+- Weaknesses: ${clientAnalysis.content_quality.weaknesses.join(', ')}
+
+Technical Performance: ${clientAnalysis.technical_performance.score}/10
+- Observations: ${clientAnalysis.technical_performance.observations}
+- Strengths: ${clientAnalysis.technical_performance.strengths.join(', ')}
+- Weaknesses: ${clientAnalysis.technical_performance.weaknesses.join(', ')}
+
+=== COMPETITOR COMPARISON ===
+${competitorAnalyses.map((c, i) => `
+${i + 1}. ${c.name} (${c.url}): ${c.overall_score}/10
+   Visual: ${c.visual_design.score}, UX: ${c.user_experience.score}, Content: ${c.content_quality.score}, Tech: ${c.technical_performance.score}
+`).join('')}
+
+Analyze this website and identify all issues, opportunities, and recommendations.`;
+}
+
+async function runCouncilStage1(
+  clientAnalysis: SiteAnalysis,
+  competitorAnalyses: SiteAnalysis[],
+  log?: LogCallback
+): Promise<CouncilOpinion[]> {
+  log?.(`[LLM_Council] Stage 1: Gathering initial opinions from 3 personas...`);
+  
+  const analysisContext = buildCouncilContext(clientAnalysis, competitorAnalyses);
+  
+  const opinions = await Promise.all(
+    (['critic', 'strategist', 'innovator'] as const).map(async (persona) => {
+      const personaConfig = COUNCIL_PERSONAS[persona];
+      log?.(`[LLM_Council] > [${personaConfig.name}] Analyzing...`);
+      
+      try {
+        const completion = await openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          messages: [
+            { role: "system", content: personaConfig.prompt },
+            { role: "user", content: analysisContext }
+          ],
+          temperature: 0.8,
+          response_format: { type: "json_object" }
+        });
+        
+        const result = JSON.parse(completion.choices[0].message.content || '{}');
+        log?.(`[LLM_Council] > [${personaConfig.name}] Found ${result.findings?.length || 0} issues (confidence: ${result.confidence})`);
+        
+        return {
+          persona,
+          personaName: personaConfig.name,
+          analysis: result.analysis || '',
+          findings: result.findings || [],
+          confidence: result.confidence || 0.5
+        } as CouncilOpinion;
+      } catch (error) {
+        log?.(`[LLM_Council] > [${personaConfig.name}] ERROR: ${error}`);
+        return {
+          persona,
+          personaName: personaConfig.name,
+          analysis: 'Analysis failed due to error',
+          findings: [],
+          confidence: 0.5
+        } as CouncilOpinion;
+      }
+    })
+  );
+  
+  return opinions;
+}
+
+function shuffleArray(array: number[], seed: number): number[] {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = (seed + i) % (i + 1);
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
+interface BordaScoreItem {
+  issue: string;
+  severity: string;
+  bordaPoints: number;
+  severityWeight: number;
+  weightedScore: number;
+  sourcePersona: string;
+  votes: number;
+}
+
+function computeBordaCount(
+  opinions: CouncilOpinion[],
+  reviews: PeerReview[],
+  shuffleMappings: ShuffleMappingEntry[]
+): BordaScoreItem[] {
+  const SEVERITY_WEIGHTS: Record<string, number> = {
+    'CRITICAL': 4,
+    'HIGH': 3,
+    'MEDIUM': 2,
+    'LOW': 1
+  };
+  
+  const allFindings: Map<string, BordaScoreItem> = new Map();
+  
+  opinions.forEach((opinion) => {
+    opinion.findings.forEach(finding => {
+      const key = finding.issue.toLowerCase().trim();
+      const existing = allFindings.get(key);
+      
+      if (existing) {
+        existing.votes++;
+      } else {
+        allFindings.set(key, {
+          issue: finding.issue,
+          severity: finding.severity,
+          bordaPoints: 0,
+          severityWeight: SEVERITY_WEIGHTS[finding.severity] || 1,
+          weightedScore: 0,
+          sourcePersona: opinion.personaName,
+          votes: 1
+        });
+      }
+    });
+  });
+  
+  const personaPointsMap = new Map<number, number>();
+  
+  reviews.forEach((review, reviewerIndex) => {
+    const shuffleMapping = shuffleMappings.find(m => m.reviewerIndex === reviewerIndex);
+    if (!shuffleMapping) return;
+    
+    review.evaluations.forEach(evaluation => {
+      const label = evaluation.reviewed.replace('Analysis ', '').trim();
+      const originalPersonaIndex = shuffleMapping.mapping[label];
+      
+      if (originalPersonaIndex !== undefined) {
+        const points = 3 - evaluation.rank;
+        personaPointsMap.set(
+          originalPersonaIndex, 
+          (personaPointsMap.get(originalPersonaIndex) || 0) + points
+        );
+      }
+    });
+  });
+  
+  allFindings.forEach((item) => {
+    const personaIndex = opinions.findIndex(o => o.personaName === item.sourcePersona);
+    const bordaPoints = personaPointsMap.get(personaIndex) || 0;
+    item.bordaPoints = bordaPoints;
+    item.weightedScore = item.severityWeight * (item.votes + bordaPoints / 3);
+  });
+  
+  const sortedFindings = Array.from(allFindings.values())
+    .sort((a, b) => b.weightedScore - a.weightedScore);
+  
+  return sortedFindings;
+}
+
+function assignPriorities(items: BordaScoreItem[]): FinalRankedIssue[] {
+  if (items.length === 0) return [];
+  
+  const maxScore = items[0].weightedScore;
+  
+  return items.slice(0, 15).map((item) => {
+    let priority: 'P0' | 'P1' | 'P2';
+    
+    if (item.severity === 'CRITICAL' || item.weightedScore >= maxScore * 0.8) {
+      priority = 'P0';
+    } else if (item.severity === 'HIGH' || item.weightedScore >= maxScore * 0.5) {
+      priority = 'P1';
+    } else {
+      priority = 'P2';
+    }
+    
+    return {
+      issue: item.issue,
+      priority,
+      votes: item.votes,
+      severity: item.severity
+    };
+  });
+}
+
+async function runCouncilStage2(
+  opinions: CouncilOpinion[],
+  log?: LogCallback
+): Promise<Stage2Result> {
+  log?.(`[LLM_Council] Stage 2: Anonymous peer review...`);
+  
+  const shuffleMappings: ShuffleMappingEntry[] = [];
+  
+  const reviews = await Promise.all(
+    opinions.map(async (reviewerOpinion, reviewerIndex) => {
+      const persona = reviewerOpinion.persona;
+      const personaConfig = COUNCIL_PERSONAS[persona];
+      
+      const shuffledIndices = shuffleArray([0, 1, 2], reviewerIndex);
+      const labels = ['A', 'B', 'C'];
+      
+      const anonymousAnalyses = shuffledIndices.map((origIndex, newIndex) => ({
+        label: labels[newIndex],
+        originalIndex: origIndex,
+        analysis: opinions[origIndex].analysis,
+        findings: opinions[origIndex].findings
+      }));
+      
+      const mapping: { [label: string]: number } = {};
+      anonymousAnalyses.forEach(a => {
+        mapping[a.label] = a.originalIndex;
+      });
+      shuffleMappings.push({ reviewerIndex, mapping });
+      
+      const reviewContext = `Review these 3 anonymous analyses:
+
+${anonymousAnalyses.map(a => `
+=== Analysis ${a.label} ===
+${a.analysis}
+
+Findings:
+${a.findings.map((f: CouncilFinding) => `- [${f.severity}] ${f.issue}: ${f.impact}`).join('\n')}
+`).join('\n')}
+
+Your own analysis was one of these, but evaluate ALL objectively.`;
+      
+      log?.(`[LLM_Council] > [${personaConfig.name}] Reviewing peers...`);
+      
+      try {
+        const completion = await openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          messages: [
+            { role: "system", content: PEER_REVIEW_PROMPT },
+            { role: "user", content: reviewContext }
+          ],
+          temperature: 0.7,
+          response_format: { type: "json_object" }
+        });
+        
+        const result = JSON.parse(completion.choices[0].message.content || '{}');
+        
+        return {
+          reviewer: persona,
+          evaluations: result.evaluations || [],
+          selfRank: result.selfRank || 2,
+          rationale: result.rationale || ''
+        } as PeerReview;
+      } catch (error) {
+        log?.(`[LLM_Council] > [${personaConfig.name}] Review ERROR: ${error}`);
+        return {
+          reviewer: persona,
+          evaluations: [],
+          selfRank: 2,
+          rationale: 'Review failed due to error'
+        } as PeerReview;
+      }
+    })
+  );
+  
+  return { reviews, shuffleMappings };
+}
+
+async function runCouncilStage3(
+  opinions: CouncilOpinion[],
+  reviews: PeerReview[],
+  shuffleMappings: ShuffleMappingEntry[],
+  log?: LogCallback
+): Promise<Omit<CouncilResult, 'stage1Opinions' | 'stage2Reviews'>> {
+  log?.(`[LLM_Council] Stage 3: Chairman synthesis with Borda Count...`);
+  
+  const bordaItems = computeBordaCount(opinions, reviews, shuffleMappings);
+  const preComputedRanking = assignPriorities(bordaItems);
+  
+  log?.(`[LLM_Council] Borda Count computed: ${preComputedRanking.length} prioritized issues`);
+  
+  const issueCountByPersona = new Map<string, Set<number>>();
+  opinions.forEach((opinion, personaIndex) => {
+    opinion.findings.forEach(finding => {
+      const key = finding.issue.toLowerCase().trim();
+      if (!issueCountByPersona.has(key)) {
+        issueCountByPersona.set(key, new Set());
+      }
+      issueCountByPersona.get(key)!.add(personaIndex);
+    });
+  });
+  
+  const totalUniqueIssues = issueCountByPersona.size;
+  const issuesInMultiplePersonas = Array.from(issueCountByPersona.values())
+    .filter(personaSet => personaSet.size >= 2).length;
+  
+  const consensusScore = totalUniqueIssues > 0 
+    ? Math.round((issuesInMultiplePersonas / totalUniqueIssues) * 100) / 100 
+    : 0;
+  
+  const chairmanContext = `
+=== PRE-COMPUTED BORDA COUNT RANKINGS ===
+${preComputedRanking.map((item, i) => 
+  `${i + 1}. [${item.priority}] ${item.issue} (${item.severity}, ${item.votes} mentions)`
+).join('\n')}
+
+=== STAGE 1: INITIAL OPINIONS ===
+${opinions.map(op => `
+[${op.personaName}] (Confidence: ${op.confidence})
+Key findings: ${op.findings.slice(0, 3).map(f => f.issue).join(', ')}
+`).join('\n')}
+
+=== STAGE 2: PEER REVIEW SUMMARY ===
+${reviews.map(r => `
+[${COUNCIL_PERSONAS[r.reviewer].name}]: ${r.rationale}
+`).join('\n')}
+
+Based on the pre-computed Borda Count rankings above, synthesize a final verdict.
+Identify any dissenting opinions where reviewers disagreed.
+The rankings have already been computed programmatically - use them as the authoritative priority list.`;
+  
+  try {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: CHAIRMAN_PROMPT },
+        { role: "user", content: chairmanContext }
+      ],
+      temperature: 0.6,
+      response_format: { type: "json_object" }
+    });
+    
+    const result = JSON.parse(completion.choices[0].message.content || '{}');
+    
+    log?.(`[LLM_Council] Chairman verdict: Consensus ${consensusScore}, ${preComputedRanking.length} prioritized issues`);
+    
+    return {
+      consensusScore: consensusScore,
+      finalRanking: preComputedRanking,
+      chairmanVerdict: result.chairmanVerdict || '',
+      dissentingOpinions: result.dissentingOpinions || []
+    };
+  } catch (error) {
+    log?.(`[LLM_Council] Chairman ERROR: ${error}`);
+    return {
+      consensusScore: consensusScore,
+      finalRanking: preComputedRanking,
+      chairmanVerdict: 'Chairman synthesis failed due to error',
+      dissentingOpinions: []
+    };
+  }
+}
+
+export async function runLLMCouncil(
+  clientAnalysis: SiteAnalysis,
+  competitorAnalyses: SiteAnalysis[],
+  log?: LogCallback
+): Promise<CouncilResult> {
+  log?.(`[LLM_Council] Initiating 3-stage deliberation...`);
+  
+  const stage1Opinions = await runCouncilStage1(clientAnalysis, competitorAnalyses, log);
+  
+  const { reviews: stage2Reviews, shuffleMappings } = await runCouncilStage2(stage1Opinions, log);
+  
+  const stage3Result = await runCouncilStage3(stage1Opinions, stage2Reviews, shuffleMappings, log);
+  
+  log?.(`[LLM_Council] Deliberation complete. Final consensus: ${stage3Result.consensusScore}`);
+  
+  return {
+    ...stage3Result,
+    stage1Opinions,
+    stage2Reviews
   };
 }
