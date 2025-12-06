@@ -161,3 +161,104 @@ The system implements a **hierarchical multi-agent architecture** with specializ
 - Pattern extraction runs automatically after each agent analysis
 - Agents retrieve prior knowledge via RAG before performing new analysis
 - Learning metrics stored in agent_states table
+
+### 9-Layer Agent Configuration System
+
+The system implements a sophisticated **9-layer configuration architecture** that enables advanced agent customization, self-awareness, and continuous improvement.
+
+**Configuration Files:**
+- `server/config/agent-config-schema.ts` - Complete Zod schema definitions for all 9 layers
+- `server/config/agent-config-registry.ts` - Configuration loader and registry service
+- `server/config/agents/` - Individual agent configurations:
+  - `visual-aesthetics.ts` - Creative Director archetype
+  - `ux-navigation.ts` - Experience Architect archetype
+  - `content-storytelling.ts` - Strategic Narrator archetype
+  - `technical-performance.ts` - Precision Engineer archetype
+
+**Layer Architecture:**
+
+1. **Layer 1 - Identity**: Defines agent personality, archetype, tone, and objectives
+   - Archetypes: creative_director, experience_architect, strategic_narrator, precision_engineer
+   - Tones: inspiring_technical, empathetic_analytical, persuasive_analytical, methodical_objective
+   - Personality traits and communication style
+
+2. **Layer 2 - Security**: Sets boundaries and ethical guidelines
+   - Confidentiality levels (public, client_only, internal, restricted)
+   - Data handling rules and prohibited actions
+   - Audit requirements and scope limitations
+
+3. **Layer 3 - Methodology**: Defines reasoning and scoring frameworks
+   - Chain-of-thought reasoning steps with validation criteria
+   - Scoring rubrics with thresholds (1-10 scale)
+   - Output structure requirements and iteration protocols
+
+4. **Layer 4 - Static Knowledge**: Foundational expertise and principles
+   - Core design/UX/content/technical principles
+   - Industry standards and best practices
+   - Reference authorities and glossary
+
+5. **Layer 5 - Dynamic Data**: Context-aware configuration
+   - Session context (industry, client size, urgency)
+   - Prior knowledge retrieval settings
+   - Trend awareness and memory settings
+
+6. **Layer 6 - Tools**: Subagent definitions and capabilities
+   - Available subagent tools with prompts
+   - Execution mode (parallel, sequential, adaptive)
+   - Error handling and fallback behaviors
+
+7. **Layer 7 - Orchestration**: Cross-agent collaboration
+   - Collaboration protocols with target agents
+   - Consensus mechanisms and escalation rules
+   - Handoff protocols for context transfer
+
+8. **Layer 8 - Metacognition**: Self-awareness capabilities
+   - Confidence assessment with weighted factors
+   - Bias detection with mitigation strategies
+   - Limitations awareness and performance tracking
+
+9. **Layer 9 - Evolution**: Self-improvement mechanisms
+   - Learning event recording and analysis
+   - Proposal generation for improvements
+   - Adaptation rules with approval workflows
+
+**Industry Templates:**
+- `server/config/industries/` - Industry-specific configurations:
+  - `fintech.ts` - Financial Technology focus
+  - `ecommerce.ts` - E-Commerce & Retail focus
+  - `saas.ts` - Software as a Service focus
+  - `healthcare.ts` - Healthcare & Medical focus
+
+**Supporting Services:**
+
+1. **MetacognitionService** (`server/metacognition-service.ts`):
+   - Calculates confidence scores based on data quality, pattern recognition, subagent agreement
+   - Detects potential biases (recency, confirmation, anchoring)
+   - Assigns reliability levels (high/medium/low) to analysis results
+
+2. **EvolutionService** (`server/evolution-service.ts`):
+   - Records learning events after each analysis
+   - Generates evolution proposals for scoring calibration
+   - Tracks performance statistics and trends per agent
+   - Persists learning data to pCloud for long-term memory
+
+3. **ConfigPersistenceService** (`server/config/config-persistence.ts`):
+   - Saves/loads agent configurations to pCloud
+   - Maintains version history with 10 previous versions
+   - Stores evolution proposals and approved changes
+   - Manages industry template persistence
+
+**API Endpoints for Configuration:**
+- `GET /api/config/stats` - Returns count of loaded agents and industry templates
+- `GET /api/evolution/stats` - Performance statistics per agent
+- `GET /api/evolution/summary` - Summary of learning events
+- `GET /api/evolution/proposals` - List of evolution proposals
+- `POST /api/evolution/save` - Persist evolution data to pCloud
+- `POST /api/evolution/load` - Load evolution data from pCloud
+
+**Agent Engine Integration:**
+The agent engine (`server/agent-engine.ts`) integrates with the 9-layer system:
+- Loads prompts from registry via `getSubagentPromptFromRegistry()`
+- Executes metacognition after each analysis via `performMetacognition()`
+- Records learning events via `evolutionService.recordLearningEvent()`
+- Updates performance stats via `evolutionService.updatePerformanceStats()`
