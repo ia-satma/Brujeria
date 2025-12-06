@@ -51,6 +51,12 @@ export interface SiteAnalysis {
 
 export type LogCallback = (message: string) => void;
 
+export interface ExtractedDomains {
+  sourceUrl: string;
+  extractedCount: number;
+  domains: string[];
+}
+
 // ============================================================================
 // SCRAPING ORCHESTRATOR
 // ============================================================================
@@ -139,6 +145,157 @@ export async function fetchSiteContent(url: string, log?: LogCallback): Promise<
     html,
     text,
     ...metadata,
+  };
+}
+
+// ============================================================================
+// LINK EXTRACTOR AGENT
+// ============================================================================
+
+const FILTERED_DOMAIN_PATTERNS = [
+  /^cdn\./i,
+  /^fonts\./i,
+  /^ajax\./i,
+  /^apis\./i,
+  /\.cdn\./i,
+];
+
+const FILTERED_DOMAINS = new Set([
+  'facebook.com',
+  'www.facebook.com',
+  'twitter.com',
+  'www.twitter.com',
+  'linkedin.com',
+  'www.linkedin.com',
+  'instagram.com',
+  'www.instagram.com',
+  'youtube.com',
+  'www.youtube.com',
+  'x.com',
+  'www.x.com',
+  'google.com',
+  'www.google.com',
+  'googleapis.com',
+  'gstatic.com',
+  'fonts.googleapis.com',
+  'ajax.googleapis.com',
+  'apis.google.com',
+]);
+
+function extractDomainFromUrl(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+      return parsed.hostname.toLowerCase();
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function isFilteredDomain(domain: string): boolean {
+  if (FILTERED_DOMAINS.has(domain)) {
+    return true;
+  }
+  
+  for (const pattern of FILTERED_DOMAIN_PATTERNS) {
+    if (pattern.test(domain)) {
+      return true;
+    }
+  }
+  
+  return false;
+}
+
+async function fetchWithRetry(
+  url: string,
+  maxAttempts: number = 3,
+  log?: LogCallback
+): Promise<string> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      log?.(`[Link_Extractor_Agent] Fetch attempt ${attempt}/${maxAttempts} for ${url}`);
+      
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; WebBenchmarkBot/1.0)',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      return await response.text();
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      log?.(`[Link_Extractor_Agent] Attempt ${attempt} failed: ${lastError.message}`);
+      
+      if (attempt < maxAttempts) {
+        const delay = Math.pow(2, attempt) * 1000;
+        log?.(`[Link_Extractor_Agent] Retrying in ${delay / 1000}s...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+  
+  throw new Error(`Failed to fetch ${url} after ${maxAttempts} attempts: ${lastError?.message}`);
+}
+
+export async function extractExternalDomains(
+  portfolioUrl: string,
+  log?: LogCallback
+): Promise<ExtractedDomains> {
+  log?.(`[Link_Extractor_Agent] Starting external domain extraction from ${portfolioUrl}`);
+  
+  let sourceDomain: string;
+  try {
+    sourceDomain = new URL(portfolioUrl).hostname.toLowerCase();
+  } catch {
+    throw new Error(`Invalid portfolio URL: ${portfolioUrl}`);
+  }
+  
+  const html = await fetchWithRetry(portfolioUrl, 3, log);
+  log?.(`[Link_Extractor_Agent] Fetched ${html.length} bytes of HTML`);
+  
+  const hrefMatches = html.matchAll(/<a[^>]*href=["']([^"']+)["'][^>]*>/gi);
+  const allHrefs = Array.from(hrefMatches).map(m => m[1]);
+  log?.(`[Link_Extractor_Agent] Found ${allHrefs.length} anchor tags`);
+  
+  const externalDomains = new Set<string>();
+  
+  for (const href of allHrefs) {
+    if (!href.startsWith('http://') && !href.startsWith('https://')) {
+      continue;
+    }
+    
+    const domain = extractDomainFromUrl(href);
+    if (!domain) continue;
+    
+    if (domain === sourceDomain || domain.endsWith(`.${sourceDomain}`)) {
+      continue;
+    }
+    
+    if (isFilteredDomain(domain)) {
+      continue;
+    }
+    
+    externalDomains.add(domain);
+  }
+  
+  const domains = Array.from(externalDomains)
+    .sort()
+    .map(domain => `https://${domain}`);
+  
+  log?.(`[Link_Extractor_Agent] Found ${domains.length} external domains from portfolio`);
+  
+  return {
+    sourceUrl: portfolioUrl,
+    extractedCount: domains.length,
+    domains,
   };
 }
 
