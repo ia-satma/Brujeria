@@ -6,6 +6,11 @@ import {
   runAllAgentsInParallel,
   calculateOverallScore, 
   generateComparativeInsights,
+  runLLMCouncil,
+  generateReportMetadata,
+  generateExecutiveSummary,
+  generatePrioritizedTasks,
+  generateCompletionCriteria,
   type SiteAnalysis,
   type Report,
   type LogCallback
@@ -56,11 +61,33 @@ export async function registerRoutes(
       const competitorAnalyses = analyses.slice(1);
       const insights = await generateComparativeInsights(clientAnalysis, competitorAnalyses);
 
+      const councilResult = await runLLMCouncil(clientAnalysis, competitorAnalyses);
+
+      const competitorScores = competitorAnalyses.map(c => c.overall_score);
+      const reportMetadata = generateReportMetadata(
+        clientUrl,
+        competitorAnalyses.length,
+        councilResult.consensusScore
+      );
+      const executiveSummary = generateExecutiveSummary(
+        clientAnalysis.overall_score,
+        competitorScores,
+        councilResult
+      );
+      const { tasks: prioritizedTasks, executionOrder } = generatePrioritizedTasks(councilResult);
+      const completionCriteria = generateCompletionCriteria();
+
       const report: Report = {
         report_title: "Web Benchmarking Analysis Report",
+        report_metadata: reportMetadata,
+        executive_summary: executiveSummary,
         client_website_analysis: clientAnalysis,
         competitor_analyses: competitorAnalyses,
         ...insights,
+        councilResult,
+        prioritized_tasks: prioritizedTasks,
+        execution_order: executionOrder,
+        completion_criteria: completionCriteria,
       };
 
       res.json(report);
@@ -155,18 +182,47 @@ export async function registerRoutes(
       sendLog(`\n[Benchmarking_Manager] Generating comparative insights...`);
       const insights = await generateComparativeInsights(clientAnalysis, competitorAnalyses, sendLog);
 
+      sendLog(`\n[Benchmarking_Manager] Initiating LLM Council deliberation...`);
+      const councilResult = await runLLMCouncil(clientAnalysis, competitorAnalyses, sendLog);
+
+      const competitorScores = competitorAnalyses.map(c => c.overall_score);
+      const reportMetadata = generateReportMetadata(
+        clientUrl,
+        competitorAnalyses.length,
+        councilResult.consensusScore
+      );
+      const executiveSummary = generateExecutiveSummary(
+        clientAnalysis.overall_score,
+        competitorScores,
+        councilResult
+      );
+      const { tasks: prioritizedTasks, executionOrder } = generatePrioritizedTasks(councilResult);
+      const completionCriteria = generateCompletionCriteria();
+
       sendLog(`\n[Benchmarking_Manager] Strategic Analysis Complete.`);
+      sendLog(`[Benchmarking_Manager] Council Consensus: ${(councilResult.consensusScore * 100).toFixed(0)}%`);
       sendLog(`[Benchmarking_Manager] High Priority Recommendations: ${insights.recommendations?.high_priority?.length || 0}`);
       sendLog(`[Benchmarking_Manager] Medium Priority Recommendations: ${insights.recommendations?.medium_priority?.length || 0}`);
       sendLog(`[Benchmarking_Manager] Innovation Opportunities: ${insights.recommendations?.innovative_opportunities?.length || 0}`);
+      
+      sendLog(`\n[Benchmarking_Manager] Generated ${prioritizedTasks.length} prioritized tasks`);
+      sendLog(`[Benchmarking_Manager] P0-CRITICAL: ${prioritizedTasks.filter(t => t.priority === 'P0-CRITICAL').length}`);
+      sendLog(`[Benchmarking_Manager] P1-HIGH: ${prioritizedTasks.filter(t => t.priority === 'P1-HIGH').length}`);
+      sendLog(`[Benchmarking_Manager] P2-MEDIUM: ${prioritizedTasks.filter(t => t.priority === 'P2-MEDIUM').length}`);
       
       sendLog(`\n[COMPLETE] Analysis Cycle Finished Successfully.`);
 
       const report: Report = {
         report_title: "Web Benchmarking Analysis Report",
+        report_metadata: reportMetadata,
+        executive_summary: executiveSummary,
         client_website_analysis: clientAnalysis,
         competitor_analyses: competitorAnalyses,
         ...insights,
+        councilResult,
+        prioritized_tasks: prioritizedTasks,
+        execution_order: executionOrder,
+        completion_criteria: completionCriteria,
       };
 
       res.write(`data: ${JSON.stringify({ type: 'complete', report })}\n\n`);

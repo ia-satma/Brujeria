@@ -133,6 +133,42 @@ export interface CouncilResult {
 }
 
 // ============================================================================
+// REPORT ENHANCEMENT INTERFACES
+// ============================================================================
+
+export interface ReportMetadata {
+  generated_at: string;
+  client_url: string;
+  competitors_analyzed: number;
+  council_consensus: number;
+}
+
+export interface ExecutiveSummary {
+  overall_score: number;
+  vs_competitors: string;
+  critical_issues: number;
+  estimated_conversion_loss: string;
+}
+
+export interface PrioritizedTask {
+  id: string;
+  priority: string;
+  department: string;
+  title: string;
+  problem: string;
+  solution: string;
+  success_metrics: string[];
+  estimated_hours: number;
+  replit_code?: string | null;
+}
+
+export interface CompletionCriteria {
+  phase_0: string;
+  phase_1: string;
+  phase_2: string;
+}
+
+// ============================================================================
 // SCRAPING ORCHESTRATOR
 // ============================================================================
 
@@ -1156,6 +1192,8 @@ export function calculateOverallScore(analysis: ParallelAgentResults): number {
 
 export interface Report {
   report_title: string;
+  report_metadata?: ReportMetadata;
+  executive_summary?: ExecutiveSummary;
   client_website_analysis: SiteAnalysis;
   competitor_analyses: SiteAnalysis[];
   comparative_analysis: {
@@ -1171,6 +1209,9 @@ export interface Report {
   };
   implementation_notes: string[];
   councilResult?: CouncilResult;
+  prioritized_tasks?: PrioritizedTask[];
+  execution_order?: string[];
+  completion_criteria?: CompletionCriteria;
 }
 
 const COMPARATIVE_PROMPT = `You are the COMPARATIVE_INSIGHTS_ENGINE, analyzing competitive positioning.
@@ -1648,5 +1689,133 @@ export async function runLLMCouncil(
     ...stage3Result,
     stage1Opinions,
     stage2Reviews
+  };
+}
+
+// ============================================================================
+// REPORT ENHANCEMENT FUNCTIONS
+// ============================================================================
+
+export function generateReportMetadata(
+  clientUrl: string,
+  competitorCount: number,
+  councilConsensus: number
+): ReportMetadata {
+  return {
+    generated_at: new Date().toISOString(),
+    client_url: clientUrl,
+    competitors_analyzed: competitorCount,
+    council_consensus: councilConsensus
+  };
+}
+
+export function generateExecutiveSummary(
+  clientScore: number,
+  competitorScores: number[],
+  councilResult?: CouncilResult
+): ExecutiveSummary {
+  const avgCompetitor = competitorScores.length > 0
+    ? competitorScores.reduce((a, b) => a + b, 0) / competitorScores.length
+    : 0;
+  
+  const diff = clientScore - avgCompetitor;
+  const diffStr = diff >= 0 
+    ? `+${diff.toFixed(1)} points above average`
+    : `${diff.toFixed(1)} points below average`;
+  
+  const criticalCount = councilResult?.finalRanking.filter(
+    r => r.priority === 'P0'
+  ).length || 0;
+  
+  let conversionLoss = "0-10%";
+  if (clientScore < 5) {
+    conversionLoss = "45-60%";
+  } else if (clientScore < 6) {
+    conversionLoss = "35-45%";
+  } else if (clientScore < 7) {
+    conversionLoss = "20-35%";
+  } else if (clientScore < 8) {
+    conversionLoss = "10-20%";
+  }
+  
+  return {
+    overall_score: clientScore,
+    vs_competitors: diffStr,
+    critical_issues: criticalCount,
+    estimated_conversion_loss: conversionLoss
+  };
+}
+
+export function generatePrioritizedTasks(
+  councilResult: CouncilResult
+): { tasks: PrioritizedTask[]; executionOrder: string[] } {
+  const tasks: PrioritizedTask[] = [];
+  const counters: { P0: number; P1: number; P2: number } = { P0: 0, P1: 0, P2: 0 };
+  
+  const getDepartment = (issue: string): string => {
+    const lower = issue.toLowerCase();
+    if (lower.includes('cta') || lower.includes('button') || lower.includes('navigation') || lower.includes('ux') || lower.includes('conversion')) {
+      return 'UX/Conversion';
+    }
+    if (lower.includes('color') || lower.includes('design') || lower.includes('visual') || lower.includes('typography')) {
+      return 'Visual Design';
+    }
+    if (lower.includes('content') || lower.includes('copy') || lower.includes('message') || lower.includes('brand')) {
+      return 'Content Strategy';
+    }
+    if (lower.includes('seo') || lower.includes('speed') || lower.includes('performance') || lower.includes('technical')) {
+      return 'Technical';
+    }
+    return 'General';
+  };
+  
+  const getEstimatedHours = (priority: string): number => {
+    switch (priority) {
+      case 'P0': return 4;
+      case 'P1': return 8;
+      case 'P2': return 16;
+      default: return 8;
+    }
+  };
+  
+  councilResult.finalRanking.forEach((ranking) => {
+    const priority = ranking.priority;
+    counters[priority]++;
+    const id = `${priority}-${String(counters[priority]).padStart(3, '0')}`;
+    
+    const priorityLabel = priority === 'P0' ? 'P0-CRITICAL' 
+      : priority === 'P1' ? 'P1-HIGH' 
+      : 'P2-MEDIUM';
+    
+    const findingDetails = councilResult.stage1Opinions
+      .flatMap(op => op.findings)
+      .find(f => f.issue.toLowerCase().trim() === ranking.issue.toLowerCase().trim());
+    
+    tasks.push({
+      id,
+      priority: priorityLabel,
+      department: getDepartment(ranking.issue),
+      title: ranking.issue,
+      problem: findingDetails?.impact || `Issue identified: ${ranking.issue}`,
+      solution: `Address ${ranking.issue} to improve ${getDepartment(ranking.issue).toLowerCase()} performance`,
+      success_metrics: [
+        `${ranking.issue} resolved`,
+        `Score improvement in related area`
+      ],
+      estimated_hours: getEstimatedHours(priority),
+      replit_code: null
+    });
+  });
+  
+  const executionOrder = tasks.map(t => t.id);
+  
+  return { tasks, executionOrder };
+}
+
+export function generateCompletionCriteria(): CompletionCriteria {
+  return {
+    phase_0: "All P0-CRITICAL tasks completed and verified",
+    phase_1: "P1-HIGH tasks completed, baseline metrics established",
+    phase_2: "P2-MEDIUM tasks completed, differentiators implemented"
   };
 }
