@@ -7,6 +7,7 @@ import {
   type RAGResult,
   type RAGContext
 } from "./agent-knowledge";
+import { extractPatternsAfterAnalysis } from "./autonomy-engine";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY!,
@@ -1152,6 +1153,16 @@ async function saveAgentAnalysisResult(
       subagentResults: result.subagent_results,
     });
     log?.(`  [${agentName}] Saved analysis to knowledge base`);
+    
+    extractPatternsAfterAnalysis(agentName, {
+      url,
+      score: result.score,
+      observations: result.observations,
+      strengths: result.strengths,
+      weaknesses: result.weaknesses,
+    }, log).catch(err => {
+      console.error(`[${agentName}] Pattern extraction failed:`, err);
+    });
   } catch (err) {
     console.error(`[${agentName}] Failed to save analysis:`, err);
   }

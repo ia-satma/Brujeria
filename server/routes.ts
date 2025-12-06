@@ -26,6 +26,11 @@ import {
   PRIMARY_AGENTS,
   type AgentName 
 } from "./agent-knowledge";
+import {
+  runAutonomyLearningCycle,
+  getAutonomyStats,
+  getAgentPerformanceReport,
+} from "./autonomy-engine";
 
 const analyzeRequestSchema = z.object({
   clientUrl: z.string().url(),
@@ -521,6 +526,66 @@ export async function registerRoutes(
       });
     } catch (error) {
       console.error("Knowledge documents error:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
+  app.post("/api/autonomy/run-learning-cycle", async (req, res) => {
+    try {
+      const logs: string[] = [];
+      const log = (msg: string) => {
+        logs.push(msg);
+        console.log(msg);
+      };
+      
+      const insights = await runAutonomyLearningCycle(log);
+      
+      res.json({
+        success: true,
+        message: "Learning cycle completed",
+        insightsCount: insights.length,
+        insights,
+        logs,
+      });
+    } catch (error) {
+      console.error("Autonomy learning cycle error:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
+  app.get("/api/autonomy/stats", async (req, res) => {
+    try {
+      const stats = await getAutonomyStats();
+      
+      res.json({
+        success: true,
+        stats,
+      });
+    } catch (error) {
+      console.error("Autonomy stats error:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
+  app.get("/api/autonomy/agent-performance", async (req, res) => {
+    try {
+      const report = await getAgentPerformanceReport();
+      
+      res.json({
+        success: true,
+        agents: report,
+      });
+    } catch (error) {
+      console.error("Agent performance error:", error);
       res.status(500).json({
         success: false,
         error: error instanceof Error ? error.message : "Unknown error",

@@ -127,3 +127,37 @@ The system implements a **hierarchical multi-agent architecture** with specializ
 - DATABASE_URL required for PostgreSQL connection
 - OpenAI credentials for AI agent execution
 - NODE_ENV switching between development (Vite middleware) and production (static serving)
+
+### Agent Knowledge System
+
+**Knowledge Storage:**
+- pCloud integration for persistent knowledge document storage
+- Agent-specific folder structure: `/BenchmarkingCouncil/<Agent>/<YYYY-MM>/`
+- PostgreSQL database for metadata indexing and fast retrieval
+
+**Database Tables for Knowledge:**
+- `agent_knowledge_documents`: Stores document metadata, pCloud paths, tags, scores
+- `agent_states`: Tracks agent performance metrics, specializations, learning progress
+- `agent_learning_events`: Audit log of all learning activities
+
+**Key Services:**
+- `AgentKnowledgeService` (server/agent-knowledge.ts): Saves analysis results and patterns to pCloud + DB
+- `CrossAgentRAGService`: Retrieves relevant prior knowledge across agents before analysis
+- `AutonomyEngine` (server/autonomy-engine.ts): Proactive self-specialization and pattern detection
+
+### Autonomy Engine
+
+**Self-Learning Capabilities:**
+1. **Pattern Detection**: Analyzes accumulated knowledge to identify common issues, industry trends, and best practices
+2. **Performance Analysis**: Monitors agent consistency, scoring trends, and identifies weak areas
+3. **Specialization Optimization**: Automatically recommends and applies specializations based on performance data
+
+**API Endpoints:**
+- `POST /api/autonomy/run-learning-cycle`: Triggers a full learning cycle
+- `GET /api/autonomy/stats`: Returns engine statistics (patterns detected, agents optimized)
+- `GET /api/autonomy/agent-performance`: Returns detailed performance metrics for all agents
+
+**Integration Points:**
+- Pattern extraction runs automatically after each agent analysis
+- Agents retrieve prior knowledge via RAG before performing new analysis
+- Learning metrics stored in agent_states table
