@@ -6,8 +6,10 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ExternalLink, TrendingUp, AlertTriangle, Award, CheckCircle2, BarChart3, FileText, Users, Target, Clock, Gavel, MessageSquare, ListOrdered, Download } from "lucide-react";
+import { ExternalLink, TrendingUp, AlertTriangle, Award, CheckCircle2, BarChart3, FileText, Users, Target, Clock, Gavel, MessageSquare, ListOrdered, Download, LayoutGrid } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ComparativeHeatmap } from "./ComparativeHeatmap";
+import { PriorityTaskBoard } from "./PriorityTaskBoard";
 import {
   Radar,
   RadarChart,
@@ -65,11 +67,15 @@ export function ReportView({ report, reportId }: ReportViewProps) {
 
       {/* Main Content Tabs */}
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 lg:w-[550px] mb-8 bg-muted/50">
+        <TabsList className="grid w-full grid-cols-5 lg:w-[700px] mb-8 bg-muted/50">
           <TabsTrigger value="overview" data-testid="tab-overview">Resumen</TabsTrigger>
-          <TabsTrigger value="client" data-testid="tab-client">Análisis del Cliente</TabsTrigger>
+          <TabsTrigger value="workspace" data-testid="tab-workspace" className="flex items-center gap-1">
+            <LayoutGrid className="w-3 h-3" />
+            Workspace
+          </TabsTrigger>
+          <TabsTrigger value="client" data-testid="tab-client">Cliente</TabsTrigger>
           <TabsTrigger value="competitors" data-testid="tab-competitors">Competidores</TabsTrigger>
-          <TabsTrigger value="council" data-testid="tab-council">Perspectivas del Consejo</TabsTrigger>
+          <TabsTrigger value="council" data-testid="tab-council">Consejo</TabsTrigger>
         </TabsList>
 
         {/* OVERVIEW TAB */}
@@ -183,6 +189,26 @@ export function ReportView({ report, reportId }: ReportViewProps) {
               </CardContent>
             </Card>
           </div>
+
+          {/* Quick access to Workspace */}
+          <div className="flex justify-center pt-4">
+            <div className="text-center p-4 bg-muted/20 rounded-lg border border-border/50">
+              <p className="text-sm text-muted-foreground mb-2">
+                Para análisis detallado con heatmaps comparativos y tablero de tareas
+              </p>
+              <Badge variant="outline" className="text-primary border-primary/30">
+                <LayoutGrid className="w-3 h-3 mr-1" />
+                Ver pestaña Workspace
+              </Badge>
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* WORKSPACE TAB - Insights Workspace */}
+        <TabsContent value="workspace" className="space-y-8">
+          <ComparativeHeatmap report={report} />
+          
+          <PriorityTaskBoard tasks={report.prioritized_tasks || []} />
         </TabsContent>
 
         {/* CLIENT DEEP DIVE */}
