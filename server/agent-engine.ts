@@ -9,8 +9,24 @@ const openai = new OpenAI({
 // INTERFACES
 // ============================================================================
 
+export interface PageContent {
+  path: string;
+  title: string;
+  html: string;
+  text: string;
+  metaDescription?: string;
+  h1Tags: string[];
+  h2Tags: string[];
+  paragraphs: string[];
+  ctas: string[];
+  images: number;
+  forms: number;
+}
+
 export interface SiteContent {
   url: string;
+  pages: PageContent[];
+  pagesScraped: number;
   title: string;
   html: string;
   text: string;
@@ -89,7 +105,7 @@ async function runDataExtractor(url: string, log?: LogCallback): Promise<{ html:
   return { html, text };
 }
 
-async function runMetadataFetcher(html: string, url: string, log?: LogCallback): Promise<Omit<SiteContent, 'html' | 'text' | 'url'>> {
+async function runMetadataFetcher(html: string, url: string, log?: LogCallback): Promise<Omit<SiteContent, 'html' | 'text' | 'url' | 'pages' | 'pagesScraped'>> {
   log?.(`[Scraping_Orchestrator] > [Metadata_Fetcher] Extracting meta tags & headers...`);
   
   const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
@@ -132,19 +148,145 @@ async function runMetadataFetcher(html: string, url: string, log?: LogCallback):
   };
 }
 
+const MULTI_PAGE_PATHS = ['/', '/about', '/about-us', '/nosotros', '/services', '/servicios', '/practice-areas', '/contact', '/contacto'];
+
+const CTA_ACTION_WORDS = [
+  'contact', 'schedule', 'call', 'book', 'request', 'get started', 'sign up', 
+  'subscribe', 'learn more', 'free', 'consultation', 'quote', 'demo', 'trial',
+  'buy', 'order', 'shop', 'download', 'register', 'join', 'apply', 'submit'
+];
+
+function extractPageContent(html: string, path: string): PageContent {
+  const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+  const title = titleMatch ? titleMatch[1].trim() : 'No title';
+  
+  const metaDescMatch = html.match(/<meta\s+name=["']description["'][^>]*content=["']([^"']+)["']/i);
+  const metaDescription = metaDescMatch ? metaDescMatch[1] : undefined;
+  
+  const h1Matches = html.matchAll(/<h1[^>]*>([\s\S]*?)<\/h1>/gi);
+  const h1Tags = Array.from(h1Matches).map(m => m[1].replace(/<[^>]+>/g, '').trim()).filter(Boolean).slice(0, 5);
+  
+  const h2Matches = html.matchAll(/<h2[^>]*>([\s\S]*?)<\/h2>/gi);
+  const h2Tags = Array.from(h2Matches).map(m => m[1].replace(/<[^>]+>/g, '').trim()).filter(Boolean).slice(0, 10);
+  
+  const paragraphMatches = html.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi);
+  const paragraphs = Array.from(paragraphMatches)
+    .map(m => m[1].replace(/<[^>]+>/g, '').trim())
+    .filter(p => p.length > 20)
+    .slice(0, 10)
+    .map(p => p.slice(0, 500));
+  
+  const ctaPattern = new RegExp(`<(a|button)[^>]*>([^<]*(?:${CTA_ACTION_WORDS.join('|')})[^<]*)<\\/(a|button)>`, 'gi');
+  const ctaMatches = html.matchAll(ctaPattern);
+  const ctas = Array.from(ctaMatches)
+    .map(m => m[2].replace(/<[^>]+>/g, '').trim())
+    .filter(Boolean)
+    .slice(0, 10);
+  
+  const imageMatches = html.matchAll(/<img[^>]*>/gi);
+  const images = Array.from(imageMatches).length;
+  
+  const formMatches = html.matchAll(/<form[^>]*>/gi);
+  const forms = Array.from(formMatches).length;
+  
+  const text = html
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 5000);
+
+  return {
+    path,
+    title,
+    html,
+    text,
+    metaDescription,
+    h1Tags,
+    h2Tags,
+    paragraphs,
+    ctas,
+    images,
+    forms,
+  };
+}
+
+async function scrapeMultiplePages(baseUrl: string, log?: LogCallback): Promise<PageContent[]> {
+  log?.(`[Scraping_Orchestrator] > [Multi_Page_Scraper] Starting multi-page scraping for ${baseUrl}`);
+  
+  const parsedUrl = new URL(baseUrl);
+  const origin = parsedUrl.origin;
+  const pages: PageContent[] = [];
+  const totalPaths = MULTI_PAGE_PATHS.length;
+  
+  for (let i = 0; i < MULTI_PAGE_PATHS.length; i++) {
+    const path = MULTI_PAGE_PATHS[i];
+    const fullUrl = `${origin}${path}`;
+    
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+      
+      const response = await fetch(fullUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; WebBenchmarkBot/1.0)',
+        },
+        signal: controller.signal,
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        continue;
+      }
+      
+      const html = await response.text();
+      const pageContent = extractPageContent(html, path);
+      pages.push(pageContent);
+      
+      log?.(`[Scraping_Orchestrator] > [Multi_Page_Scraper] Scraped ${path} (${pages.length}/${totalPaths})`);
+      
+    } catch (error) {
+    }
+    
+    if (i < MULTI_PAGE_PATHS.length - 1) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+  }
+  
+  log?.(`[Scraping_Orchestrator] > [Multi_Page_Scraper] Completed: ${pages.length} pages scraped`);
+  
+  return pages;
+}
+
 export async function fetchSiteContent(url: string, log?: LogCallback): Promise<SiteContent> {
   log?.(`[Scraping_Orchestrator] Targeted: ${url}`);
   
   const { html, text } = await runDataExtractor(url, log);
   const metadata = await runMetadataFetcher(html, url, log);
   
-  log?.(`[Scraping_Orchestrator] Context acquisition complete.`);
+  const pages = await scrapeMultiplePages(url, log);
+  
+  const allH1Tags = new Set<string>(metadata.h1Tags);
+  const allH2Tags = new Set<string>(metadata.h2Tags);
+  
+  for (const page of pages) {
+    page.h1Tags.forEach(tag => allH1Tags.add(tag));
+    page.h2Tags.forEach(tag => allH2Tags.add(tag));
+  }
+  
+  log?.(`[Scraping_Orchestrator] Context acquisition complete. Aggregated ${allH1Tags.size} H1s, ${allH2Tags.size} H2s from ${pages.length} pages.`);
   
   return {
     url,
+    pages,
+    pagesScraped: pages.length,
     html,
     text,
     ...metadata,
+    h1Tags: Array.from(allH1Tags),
+    h2Tags: Array.from(allH2Tags),
   };
 }
 
@@ -597,22 +739,44 @@ async function runSubagent(
 }
 
 function buildContext(content: SiteContent): string {
+  let pagesSection = '';
+  
+  if (content.pages && content.pages.length > 0) {
+    pagesSection = `
+=== MULTI-PAGE SITE DATA (${content.pagesScraped} pages scraped) ===
+`;
+    for (const page of content.pages) {
+      pagesSection += `
+--- Page: ${page.path} ---
+Title: ${page.title}
+Meta Description: ${page.metaDescription || 'None'}
+H1 Tags: ${page.h1Tags.join(' | ') || 'None'}
+H2 Tags: ${page.h2Tags.join(' | ') || 'None'}
+CTAs Found: ${page.ctas.length > 0 ? page.ctas.join(', ') : 'None'}
+Images: ${page.images}, Forms: ${page.forms}
+Text Preview (500 chars): ${page.text.slice(0, 500)}
+`;
+    }
+  }
+
   return `
 Website: ${content.url}
 Title: ${content.title}
 Meta Description: ${content.metaDescription || 'None'}
 
-H1 Tags: ${content.h1Tags.join(' | ') || 'None'}
-H2 Tags: ${content.h2Tags.join(' | ') || 'None'}
+=== AGGREGATED SITE DATA ===
+All H1 Tags (across ${content.pagesScraped || 1} pages): ${content.h1Tags.join(' | ') || 'None'}
+All H2 Tags (across ${content.pagesScraped || 1} pages): ${content.h2Tags.join(' | ') || 'None'}
 
 Navigation Links (sample): ${content.links.slice(0, 10).join(', ')}
-Total Images: ${content.images}
+Total Images (homepage): ${content.images}
 
 Technical Signals:
 - Viewport Meta: ${content.hasViewportMeta ? 'Yes' : 'No'}
 - Media Queries Detected: ${content.hasMediaQueries ? 'Yes' : 'No'}
 - Schema.org: ${content.schemaOrg ? 'Yes' : 'No'}
-
+${pagesSection}
+=== HOMEPAGE CONTENT ===
 HTML Preview (first 2500 chars):
 ${content.html.slice(0, 2500)}
 
