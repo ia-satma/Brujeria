@@ -3,10 +3,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Share2, Activity } from "lucide-react";
 import { Link as WouterLink } from "wouter";
 import { Button } from "@/components/ui/button";
-import { TerminalLog } from "@/components/agent/Terminal";
-import { AgentNetwork } from "@/components/agent/AgentNetwork";
 import { ReportView } from "@/components/agent/Report";
 import { IntakeWizard } from "@/components/intake/IntakeWizard";
+import { AnalysisConsole } from "@/components/agent/AnalysisConsole";
 import type { Report } from "@/lib/mock-agent";
 
 export default function Dashboard() {
@@ -136,18 +135,15 @@ export default function Dashboard() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="flex flex-col items-center w-full max-w-4xl mx-auto"
+            className="w-full"
           >
-            <AgentNetwork logs={logs} />
-            <TerminalLog logs={logs} isProcessing={!error} />
-            {!error && (
-              <p className="mt-4 text-muted-foreground text-sm animate-pulse" data-testid="text-processing-status">
-                The Orchestrator is distributing tasks to specialized sub-agents...
-              </p>
-            )}
+            <AnalysisConsole 
+              logs={logs} 
+              isProcessing={!error} 
+              error={error}
+            />
             {error && (
-              <div className="mt-4 flex gap-2" data-testid="container-error">
-                <p className="text-red-400 text-sm" data-testid="text-error-message">{error}</p>
+              <div className="mt-4 flex justify-center">
                 <Button variant="outline" size="sm" onClick={reset} data-testid="button-retry">
                   Try Again
                 </Button>
