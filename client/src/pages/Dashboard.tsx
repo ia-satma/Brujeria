@@ -15,12 +15,12 @@ import { ReportView } from "@/components/agent/Report";
 import type { Report } from "@/lib/mock-agent";
 
 const formSchema = z.object({
-  clientUrl: z.string().url({ message: "Please enter a valid URL" }),
+  clientUrl: z.string().url({ message: "Por favor ingresa una URL válida" }),
   competitorUrls: z.array(
     z.object({
-      value: z.string().url({ message: "Please enter a valid URL" })
+      value: z.string().url({ message: "Por favor ingresa una URL válida" })
     })
-  ).min(1, "Add at least one competitor")
+  ).min(1, "Agrega al menos un competidor")
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -40,6 +40,7 @@ export default function Dashboard() {
   
   const [inputMode, setInputMode] = useState<InputMode>("manual");
   const [portfolioUrl, setPortfolioUrl] = useState("");
+  const [portfolioClientUrl, setPortfolioClientUrl] = useState("");
   const [extractedDomains, setExtractedDomains] = useState<ExtractedDomain[]>([]);
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractError, setExtractError] = useState<string | null>(null);
@@ -81,7 +82,7 @@ export default function Dashboard() {
       setExtractedDomains(domains.map(url => ({ url, selected: true })));
     } catch (err) {
       console.error('Domain extraction error:', err);
-      setExtractError('Failed to extract domains. Please check the URL and try again.');
+      setExtractError('Error al extraer dominios. Por favor verifica la URL e intenta de nuevo.');
     } finally {
       setIsExtracting(false);
     }
@@ -96,13 +97,18 @@ export default function Dashboard() {
   };
 
   const handlePortfolioAnalysis = async () => {
-    const selectedUrls = extractedDomains.filter(d => d.selected).map(d => d.url);
-    if (selectedUrls.length < 1) {
-      setExtractError('Please select at least 1 competitor domain');
+    if (!portfolioClientUrl) {
+      setExtractError('Por favor ingresa la URL de tu sitio web cliente');
       return;
     }
     
-    const clientUrl = portfolioUrl;
+    const selectedUrls = extractedDomains.filter(d => d.selected).map(d => d.url);
+    if (selectedUrls.length < 1) {
+      setExtractError('Por favor selecciona al menos 1 dominio competidor');
+      return;
+    }
+    
+    const clientUrl = portfolioClientUrl;
     const competitorUrls = selectedUrls;
     
     setStep("processing");
@@ -152,7 +158,7 @@ export default function Dashboard() {
                 setStep("report");
               } else if (data.type === 'error') {
                 setError(data.message);
-                setLogs(prev => [...prev, `[FATAL ERROR] ${data.message}`]);
+                setLogs(prev => [...prev, `[ERROR FATAL] ${data.message}`]);
               }
             } catch (parseError) {
               console.warn('Failed to parse SSE data:', parseError);
@@ -162,8 +168,8 @@ export default function Dashboard() {
       }
     } catch (err) {
       console.error('Analysis error:', err);
-      setError('Failed to complete analysis. Please try again.');
-      setLogs(prev => [...prev, "[FATAL ERROR] Analysis failed. Please check your URLs and try again."]);
+      setError('Error al completar el análisis. Por favor intenta de nuevo.');
+      setLogs(prev => [...prev, "[ERROR FATAL] El análisis falló. Por favor verifica las URLs e intenta de nuevo."]);
     }
   };
 
@@ -220,7 +226,7 @@ export default function Dashboard() {
                 setStep("report");
               } else if (data.type === 'error') {
                 setError(data.message);
-                setLogs(prev => [...prev, `[FATAL ERROR] ${data.message}`]);
+                setLogs(prev => [...prev, `[ERROR FATAL] ${data.message}`]);
               }
             } catch (parseError) {
               console.warn('Failed to parse SSE data:', parseError);
@@ -230,8 +236,8 @@ export default function Dashboard() {
       }
     } catch (err) {
       console.error('Analysis error:', err);
-      setError('Failed to complete analysis. Please try again.');
-      setLogs(prev => [...prev, "[FATAL ERROR] Analysis failed. Please check your URLs and try again."]);
+      setError('Error al completar el análisis. Por favor intenta de nuevo.');
+      setLogs(prev => [...prev, "[ERROR FATAL] El análisis falló. Por favor verifica las URLs e intenta de nuevo."]);
     }
   };
 
@@ -243,6 +249,7 @@ export default function Dashboard() {
     form.reset();
     setInputMode("manual");
     setPortfolioUrl("");
+    setPortfolioClientUrl("");
     setExtractedDomains([]);
     setExtractError(null);
   };
@@ -256,13 +263,13 @@ export default function Dashboard() {
       >
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-mono tracking-wider uppercase">
           <Share2 className="w-3 h-3" />
-          Multi-Agent System v2.0
+          Sistema Multi-Agente v2.0
         </div>
         <h1 className="text-4xl md:text-6xl font-display font-bold tracking-tight text-foreground">
-          Hyperspecialized <br/> <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-blue-400">Web Benchmarking</span>
+          Análisis Web <br/> <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-blue-400">Hiperespecializado</span>
         </h1>
         <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-          Deploy a coordinated swarm of specialized agents to audit Design, UX, Content, and Technical Performance with granular precision.
+          Despliega un enjambre coordinado de agentes especializados para auditar Diseño, UX, Contenido y Rendimiento Técnico con precisión granular.
         </p>
       </motion.header>
 
@@ -278,9 +285,9 @@ export default function Dashboard() {
           >
             <Card className="border-border/50 shadow-2xl bg-card/50 backdrop-blur-sm">
               <CardHeader>
-                <CardTitle>Configure Agent Swarm</CardTitle>
+                <CardTitle>Configurar Enjambre de Agentes</CardTitle>
                 <CardDescription>
-                  Initialize the Orchestrator Agent by defining the target and competitor landscape.
+                  Inicializa el Agente Orquestador definiendo el objetivo y el panorama competitivo.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -294,7 +301,7 @@ export default function Dashboard() {
                     data-testid="toggle-manual-mode"
                   >
                     <LayoutTemplate className="w-4 h-4 mr-2" />
-                    Manual Entry
+                    Entrada Manual
                   </Button>
                   <Button
                     type="button"
@@ -305,7 +312,7 @@ export default function Dashboard() {
                     data-testid="toggle-portfolio-mode"
                   >
                     <Link className="w-4 h-4 mr-2" />
-                    Portfolio URL
+                    Descubrir Competidores
                   </Button>
                 </div>
 
@@ -318,7 +325,7 @@ export default function Dashboard() {
                           <div className="p-1.5 rounded bg-primary/10 text-primary">
                             <LayoutTemplate className="w-4 h-4" />
                           </div>
-                          Client Website (Target)
+                          Sitio Web del Cliente (Objetivo)
                         </div>
                         <FormField
                           control={form.control}
@@ -327,7 +334,7 @@ export default function Dashboard() {
                             <FormItem>
                               <FormControl>
                                 <Input 
-                                  placeholder="https://client-website.com" 
+                                  placeholder="https://tu-sitio-web.com" 
                                   className="font-mono text-sm" 
                                   data-testid="input-client-url"
                                   {...field} 
@@ -345,7 +352,7 @@ export default function Dashboard() {
                             <div className="p-1.5 rounded bg-amber-500/10 text-amber-500">
                               <Globe className="w-4 h-4" />
                             </div>
-                            Competitor Websites
+                            Sitios Web Competidores
                           </div>
                           <Button
                             type="button"
@@ -356,7 +363,7 @@ export default function Dashboard() {
                             data-testid="button-add-competitor"
                           >
                             <Plus className="w-3 h-3 mr-1" />
-                            Add Competitor
+                            Agregar Competidor
                           </Button>
                         </div>
                         
@@ -371,7 +378,7 @@ export default function Dashboard() {
                                   <div className="flex gap-2">
                                     <FormControl>
                                       <Input 
-                                        placeholder={`https://competitor-${index + 1}.com`} 
+                                        placeholder={`https://competidor-${index + 1}.com`} 
                                         className="font-mono text-sm" 
                                         data-testid={`input-competitor-url-${index}`}
                                         {...field} 
@@ -404,7 +411,7 @@ export default function Dashboard() {
                         data-testid="button-deploy-agents"
                       >
                         <Play className="w-4 h-4 mr-2 fill-current" />
-                        Deploy Agents
+                        Desplegar Agentes
                       </Button>
                     </form>
                   </Form>
@@ -412,19 +419,38 @@ export default function Dashboard() {
                   <div className="space-y-6">
                     <div className="space-y-4">
                       <div className="flex items-center gap-2 text-sm font-medium text-foreground/80">
+                        <div className="p-1.5 rounded bg-primary/10 text-primary">
+                          <LayoutTemplate className="w-4 h-4" />
+                        </div>
+                        Sitio Web del Cliente (Tu sitio)
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Ingresa la URL del sitio web que deseas analizar como cliente.
+                      </p>
+                      <Input
+                        value={portfolioClientUrl}
+                        onChange={(e) => setPortfolioClientUrl(e.target.value)}
+                        placeholder="https://tu-sitio-web.com"
+                        className="font-mono text-sm"
+                        data-testid="input-portfolio-client-url"
+                      />
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2 text-sm font-medium text-foreground/80">
                         <div className="p-1.5 rounded bg-purple-500/10 text-purple-500">
                           <Link className="w-4 h-4" />
                         </div>
-                        Portfolio / Agency URL
+                        URL del Portafolio / Agencia
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        Enter a portfolio or agency website URL to automatically discover client websites linked from it.
+                        Ingresa una URL de portafolio o agencia para descubrir automáticamente sitios web competidores.
                       </p>
                       <div className="flex gap-2">
                         <Input
                           value={portfolioUrl}
                           onChange={(e) => setPortfolioUrl(e.target.value)}
-                          placeholder="https://agency-portfolio.com/work"
+                          placeholder="https://agencia-competidora.com/portafolio"
                           className="font-mono text-sm flex-1"
                           data-testid="input-portfolio-url"
                         />
@@ -440,7 +466,7 @@ export default function Dashboard() {
                           ) : (
                             <Search className="w-4 h-4 mr-2" />
                           )}
-                          Discover
+                          Descubrir
                         </Button>
                       </div>
                     </div>
@@ -455,10 +481,10 @@ export default function Dashboard() {
                           <div className="p-1.5 rounded bg-emerald-500/10 text-emerald-500">
                             <Globe className="w-4 h-4" />
                           </div>
-                          Discovered Domains ({extractedDomains.filter(d => d.selected).length} selected)
+                          Dominios Descubiertos ({extractedDomains.filter(d => d.selected).length} seleccionados)
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          The portfolio URL will be analyzed as the client. Selected domains will be analyzed as competitors.
+                          Los dominios seleccionados serán analizados como competidores de tu sitio cliente.
                         </p>
                         <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
                           {extractedDomains.map((domain, index) => (
@@ -475,7 +501,7 @@ export default function Dashboard() {
                                 {domain.url}
                               </span>
                               {domain.selected && (
-                                <span className="text-xs px-2 py-0.5 rounded bg-amber-500/20 text-amber-500">Competitor</span>
+                                <span className="text-xs px-2 py-0.5 rounded bg-amber-500/20 text-amber-500">Competidor</span>
                               )}
                             </div>
                           ))}
@@ -486,12 +512,12 @@ export default function Dashboard() {
                     <Button
                       type="button"
                       onClick={handlePortfolioAnalysis}
-                      disabled={extractedDomains.filter(d => d.selected).length < 1}
+                      disabled={!portfolioClientUrl || extractedDomains.filter(d => d.selected).length < 1}
                       className="w-full h-12 text-base font-medium shadow-primary/25 shadow-lg"
                       data-testid="button-run-portfolio-analysis"
                     >
                       <Play className="w-4 h-4 mr-2 fill-current" />
-                      Run Analysis ({extractedDomains.filter(d => d.selected).length} sites)
+                      Ejecutar Análisis ({extractedDomains.filter(d => d.selected).length + 1} sitios)
                     </Button>
                   </div>
                 )}
@@ -512,14 +538,14 @@ export default function Dashboard() {
             <TerminalLog logs={logs} isProcessing={!error} />
             {!error && (
               <p className="mt-4 text-muted-foreground text-sm animate-pulse">
-                Orchestrator is distributing tasks to specialized sub-agents...
+                El Orquestador está distribuyendo tareas a sub-agentes especializados...
               </p>
             )}
             {error && (
               <div className="mt-4 flex gap-2">
                 <p className="text-red-400 text-sm">{error}</p>
                 <Button variant="outline" size="sm" onClick={reset}>
-                  Try Again
+                  Intentar de Nuevo
                 </Button>
               </div>
             )}
@@ -533,7 +559,7 @@ export default function Dashboard() {
           > 
             <div className="absolute -top-12 left-0">
                <Button variant="ghost" onClick={reset} className="text-muted-foreground hover:text-foreground">
-                 ← New Analysis
+                 ← Nuevo Análisis
                </Button>
             </div>
             <ReportView report={report} />

@@ -38,16 +38,16 @@ export function ReportView({ report }: ReportViewProps) {
         <div>
           <div className="flex items-center gap-2 mb-2">
             <Badge variant="outline" className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20">
-              Analysis Complete
+              Análisis Completado
             </Badge>
             <span className="text-xs text-muted-foreground font-mono">{new Date().toISOString()}</span>
           </div>
           <h1 className="text-3xl font-display font-bold text-foreground">{report.report_title}</h1>
-          <p className="text-muted-foreground mt-1">Comprehensive benchmarking for <span className="text-primary font-medium">{report.client_website_analysis.name}</span></p>
+          <p className="text-muted-foreground mt-1">Benchmarking integral para <span className="text-primary font-medium">{report.client_website_analysis.name}</span></p>
         </div>
         <div className="flex gap-3">
           <div className="text-right">
-            <p className="text-sm text-muted-foreground">Overall Score</p>
+            <p className="text-sm text-muted-foreground">Puntuación General</p>
             <p className="text-3xl font-mono font-bold text-primary">{report.client_website_analysis.overall_score}/10</p>
           </div>
         </div>
@@ -56,10 +56,10 @@ export function ReportView({ report }: ReportViewProps) {
       {/* Main Content Tabs */}
       <Tabs defaultValue="overview" className="w-full">
         <TabsList className="grid w-full grid-cols-4 lg:w-[550px] mb-8 bg-muted/50">
-          <TabsTrigger value="overview" data-testid="tab-overview">Overview</TabsTrigger>
-          <TabsTrigger value="client" data-testid="tab-client">Client Deep Dive</TabsTrigger>
-          <TabsTrigger value="competitors" data-testid="tab-competitors">Competitors</TabsTrigger>
-          <TabsTrigger value="council" data-testid="tab-council">Council Insights</TabsTrigger>
+          <TabsTrigger value="overview" data-testid="tab-overview">Resumen</TabsTrigger>
+          <TabsTrigger value="client" data-testid="tab-client">Análisis del Cliente</TabsTrigger>
+          <TabsTrigger value="competitors" data-testid="tab-competitors">Competidores</TabsTrigger>
+          <TabsTrigger value="council" data-testid="tab-council">Perspectivas del Consejo</TabsTrigger>
         </TabsList>
 
         {/* OVERVIEW TAB */}
@@ -70,9 +70,9 @@ export function ReportView({ report }: ReportViewProps) {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <BarChart3 className="w-5 h-5 text-primary" />
-                  Benchmark Comparison
+                  Comparación de Benchmark
                 </CardTitle>
-                <CardDescription>Relative performance across all analyzed sites</CardDescription>
+                <CardDescription>Rendimiento relativo de todos los sitios analizados</CardDescription>
               </CardHeader>
               <CardContent className="h-[300px]">
                 <ResponsiveContainer width="100%" height="100%">
@@ -108,13 +108,13 @@ export function ReportView({ report }: ReportViewProps) {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Award className="w-5 h-5 text-amber-500" />
-                  Executive Summary
+                  Resumen Ejecutivo
                 </CardTitle>
-                <CardDescription>Top-level insights and strategic opportunities</CardDescription>
+                <CardDescription>Perspectivas de alto nivel y oportunidades estratégicas</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <h4 className="text-sm font-medium text-emerald-400">Key Strengths</h4>
+                  <h4 className="text-sm font-medium text-emerald-400">Fortalezas Clave</h4>
                   <ul className="space-y-1">
                     {report.comparative_analysis.strengths_relative.map((item, i) => (
                       <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
@@ -126,7 +126,7 @@ export function ReportView({ report }: ReportViewProps) {
                 </div>
                 <Separator className="bg-border/50" />
                 <div className="space-y-2">
-                  <h4 className="text-sm font-medium text-red-400">Critical Gaps</h4>
+                  <h4 className="text-sm font-medium text-red-400">Brechas Críticas</h4>
                   <ul className="space-y-1">
                     {report.comparative_analysis.weaknesses_relative.map((item, i) => (
                       <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
@@ -144,7 +144,7 @@ export function ReportView({ report }: ReportViewProps) {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card className="bg-red-950/10 border-red-900/20">
               <CardHeader className="pb-2">
-                <CardTitle className="text-red-400 text-base">High Priority</CardTitle>
+                <CardTitle className="text-red-400 text-base">Alta Prioridad</CardTitle>
               </CardHeader>
               <CardContent>
                 <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
@@ -154,7 +154,7 @@ export function ReportView({ report }: ReportViewProps) {
             </Card>
             <Card className="bg-amber-950/10 border-amber-900/20">
               <CardHeader className="pb-2">
-                <CardTitle className="text-amber-400 text-base">Medium Priority</CardTitle>
+                <CardTitle className="text-amber-400 text-base">Media Prioridad</CardTitle>
               </CardHeader>
               <CardContent>
                 <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
@@ -164,7 +164,7 @@ export function ReportView({ report }: ReportViewProps) {
             </Card>
             <Card className="bg-blue-950/10 border-blue-900/20">
               <CardHeader className="pb-2">
-                <CardTitle className="text-blue-400 text-base">Opportunities</CardTitle>
+                <CardTitle className="text-blue-400 text-base">Oportunidades</CardTitle>
               </CardHeader>
               <CardContent>
                 <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
@@ -200,24 +200,24 @@ export function ReportView({ report }: ReportViewProps) {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <FileText className="w-5 h-5 text-primary" />
-                    Report Metadata
+                    Metadatos del Reporte
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Generated At</span>
+                    <span className="text-muted-foreground">Generado En</span>
                     <span className="font-mono text-foreground">{report.report_metadata.generated_at}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Client URL</span>
+                    <span className="text-muted-foreground">URL del Cliente</span>
                     <span className="font-mono text-foreground truncate max-w-[200px]">{report.report_metadata.client_url}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Competitors Analyzed</span>
+                    <span className="text-muted-foreground">Competidores Analizados</span>
                     <span className="font-mono text-foreground">{report.report_metadata.competitors_analyzed}</span>
                   </div>
                   <div className="flex justify-between text-sm items-center">
-                    <span className="text-muted-foreground">Council Consensus</span>
+                    <span className="text-muted-foreground">Consenso del Consejo</span>
                     <div className="flex items-center gap-2">
                       <Progress value={report.report_metadata.council_consensus} className="w-20 h-2" />
                       <span className="font-mono text-foreground">{report.report_metadata.council_consensus}%</span>
@@ -232,29 +232,29 @@ export function ReportView({ report }: ReportViewProps) {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Target className="w-5 h-5 text-primary" />
-                    Executive Summary
+                    Resumen Ejecutivo
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="text-center p-3 bg-background/50 rounded-lg">
                       <div className="text-3xl font-mono font-bold text-primary">{report.executive_summary.overall_score}/10</div>
-                      <div className="text-xs text-muted-foreground mt-1">Overall Score</div>
+                      <div className="text-xs text-muted-foreground mt-1">Puntuación General</div>
                     </div>
                     <div className="text-center p-3 bg-background/50 rounded-lg">
                       <div className="text-lg font-medium text-foreground">{report.executive_summary.vs_competitors}</div>
-                      <div className="text-xs text-muted-foreground mt-1">vs Competitors</div>
+                      <div className="text-xs text-muted-foreground mt-1">vs Competidores</div>
                     </div>
                   </div>
                   <div className="flex justify-between items-center p-3 bg-red-950/20 rounded-lg border border-red-900/20">
                     <div className="flex items-center gap-2">
                       <AlertTriangle className="w-4 h-4 text-red-400" />
-                      <span className="text-sm text-muted-foreground">Critical Issues</span>
+                      <span className="text-sm text-muted-foreground">Problemas Críticos</span>
                     </div>
                     <span className="text-xl font-mono font-bold text-red-400">{report.executive_summary.critical_issues}</span>
                   </div>
                   <div className="flex justify-between items-center p-3 bg-amber-950/20 rounded-lg border border-amber-900/20">
-                    <span className="text-sm text-muted-foreground">Est. Conversion Loss</span>
+                    <span className="text-sm text-muted-foreground">Pérdida Estimada de Conversión</span>
                     <span className="font-mono font-medium text-amber-400">{report.executive_summary.estimated_conversion_loss}</span>
                   </div>
                 </CardContent>
@@ -267,8 +267,8 @@ export function ReportView({ report }: ReportViewProps) {
             <>
               <div className="flex items-center gap-2 mt-8 mb-4">
                 <Users className="w-5 h-5 text-purple-400" />
-                <h3 className="text-lg font-display font-bold text-foreground">Council Deliberation - Stage 1</h3>
-                <Badge variant="outline" className="ml-2">Consensus: {report.councilResult.consensusScore}%</Badge>
+                <h3 className="text-lg font-display font-bold text-foreground">Deliberación del Consejo - Etapa 1</h3>
+                <Badge variant="outline" className="ml-2">Consenso: {report.councilResult.consensusScore}%</Badge>
               </div>
               
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -282,7 +282,7 @@ export function ReportView({ report }: ReportViewProps) {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Gavel className="w-5 h-5 text-purple-400" />
-                    Chairman's Verdict
+                    Veredicto del Presidente
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -296,7 +296,7 @@ export function ReportView({ report }: ReportViewProps) {
                   <CardHeader className="pb-2">
                     <CardTitle className="flex items-center gap-2 text-amber-400 text-base">
                       <MessageSquare className="w-4 h-4" />
-                      Dissenting Opinions
+                      Opiniones Disidentes
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
@@ -317,7 +317,7 @@ export function ReportView({ report }: ReportViewProps) {
                 <div className="mt-6">
                   <div className="flex items-center gap-2 mb-4">
                     <ListOrdered className="w-5 h-5 text-primary" />
-                    <h3 className="text-lg font-display font-bold text-foreground">Final Issue Ranking</h3>
+                    <h3 className="text-lg font-display font-bold text-foreground">Clasificación Final de Problemas</h3>
                   </div>
                   <div className="space-y-2">
                     {report.councilResult.finalRanking.map((issue, i) => (
@@ -334,7 +334,7 @@ export function ReportView({ report }: ReportViewProps) {
             <div className="mt-8">
               <div className="flex items-center gap-2 mb-4">
                 <Target className="w-5 h-5 text-emerald-400" />
-                <h3 className="text-lg font-display font-bold text-foreground">Prioritized Tasks</h3>
+                <h3 className="text-lg font-display font-bold text-foreground">Tareas Priorizadas</h3>
               </div>
               <div className="space-y-4">
                 {report.prioritized_tasks.map((task, i) => (
@@ -350,7 +350,7 @@ export function ReportView({ report }: ReportViewProps) {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Clock className="w-5 h-5 text-blue-400" />
-                  Execution Order
+                  Orden de Ejecución
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -374,28 +374,28 @@ export function ReportView({ report }: ReportViewProps) {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-                  Completion Criteria
+                  Criterios de Finalización
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="p-3 bg-red-950/20 rounded-lg border border-red-900/20">
                   <div className="flex items-center gap-2 mb-2">
-                    <Badge className="bg-red-500/20 text-red-400 border-red-500/30">Phase 0</Badge>
-                    <span className="text-xs text-muted-foreground">Critical</span>
+                    <Badge className="bg-red-500/20 text-red-400 border-red-500/30">Fase 0</Badge>
+                    <span className="text-xs text-muted-foreground">Crítico</span>
                   </div>
                   <p className="text-sm text-muted-foreground">{report.completion_criteria.phase_0}</p>
                 </div>
                 <div className="p-3 bg-amber-950/20 rounded-lg border border-amber-900/20">
                   <div className="flex items-center gap-2 mb-2">
-                    <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30">Phase 1</Badge>
-                    <span className="text-xs text-muted-foreground">High Priority</span>
+                    <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30">Fase 1</Badge>
+                    <span className="text-xs text-muted-foreground">Alta Prioridad</span>
                   </div>
                   <p className="text-sm text-muted-foreground">{report.completion_criteria.phase_1}</p>
                 </div>
                 <div className="p-3 bg-blue-950/20 rounded-lg border border-blue-900/20">
                   <div className="flex items-center gap-2 mb-2">
-                    <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30">Phase 2</Badge>
-                    <span className="text-xs text-muted-foreground">Medium Priority</span>
+                    <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30">Fase 2</Badge>
+                    <span className="text-xs text-muted-foreground">Media Prioridad</span>
                   </div>
                   <p className="text-sm text-muted-foreground">{report.completion_criteria.phase_2}</p>
                 </div>
@@ -408,10 +408,10 @@ export function ReportView({ report }: ReportViewProps) {
             <Card className="border-dashed">
               <CardContent className="flex flex-col items-center justify-center py-12 text-center">
                 <Users className="w-12 h-12 text-muted-foreground/30 mb-4" />
-                <h3 className="text-lg font-medium text-muted-foreground">No Council Insights Available</h3>
+                <h3 className="text-lg font-medium text-muted-foreground">No hay Perspectivas del Consejo Disponibles</h3>
                 <p className="text-sm text-muted-foreground/70 mt-2 max-w-md">
-                  Council deliberation data is not available for this analysis. 
-                  This may occur with older reports or simplified analysis modes.
+                  Los datos de deliberación del consejo no están disponibles para este análisis. 
+                  Esto puede ocurrir con reportes antiguos o modos de análisis simplificados.
                 </p>
               </CardContent>
             </Card>
@@ -426,8 +426,8 @@ function SiteDetailView({ site }: { site: SiteAnalysis }) {
   const radarData = [
     { subject: 'Visual', A: site.visual_design.score, fullMark: 10 },
     { subject: 'UX', A: site.user_experience.score, fullMark: 10 },
-    { subject: 'Content', A: site.content_quality.score, fullMark: 10 },
-    { subject: 'Tech', A: site.technical_performance.score, fullMark: 10 },
+    { subject: 'Contenido', A: site.content_quality.score, fullMark: 10 },
+    { subject: 'Técnico', A: site.technical_performance.score, fullMark: 10 },
   ];
 
   return (
@@ -461,11 +461,11 @@ function SiteDetailView({ site }: { site: SiteAnalysis }) {
                 <div className="font-mono font-bold text-foreground">{site.user_experience.score}</div>
               </div>
               <div className="text-center p-2 bg-muted/30 rounded">
-                <div className="text-xs text-muted-foreground">Content</div>
+                <div className="text-xs text-muted-foreground">Contenido</div>
                 <div className="font-mono font-bold text-foreground">{site.content_quality.score}</div>
               </div>
               <div className="text-center p-2 bg-muted/30 rounded">
-                <div className="text-xs text-muted-foreground">Tech</div>
+                <div className="text-xs text-muted-foreground">Técnico</div>
                 <div className="font-mono font-bold text-foreground">{site.technical_performance.score}</div>
               </div>
             </div>
@@ -474,19 +474,19 @@ function SiteDetailView({ site }: { site: SiteAnalysis }) {
         
         <Card>
           <CardHeader>
-             <CardTitle className="text-sm">Quick Stats</CardTitle>
+             <CardTitle className="text-sm">Estadísticas Rápidas</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Load Time (Est.)</span>
+              <span className="text-muted-foreground">Tiempo de Carga (Est.)</span>
               <span className="font-mono">0.{Math.floor(Math.random() * 8 + 2)}s</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Mobile Friendly</span>
-              <span className="text-emerald-400">Yes</span>
+              <span className="text-muted-foreground">Compatible con Móviles</span>
+              <span className="text-emerald-400">Sí</span>
             </div>
              <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Accessibility</span>
+              <span className="text-muted-foreground">Accesibilidad</span>
               <span className="text-amber-400">AA</span>
             </div>
           </CardContent>
@@ -495,10 +495,10 @@ function SiteDetailView({ site }: { site: SiteAnalysis }) {
 
       {/* Right Col: Detailed Text Analysis */}
       <div className="col-span-1 lg:col-span-2 space-y-4">
-        <AnalysisSectionCard title="Visual Design" data={site.visual_design} />
-        <AnalysisSectionCard title="User Experience" data={site.user_experience} />
-        <AnalysisSectionCard title="Content Strategy" data={site.content_quality} />
-        <AnalysisSectionCard title="Technical Performance" data={site.technical_performance} />
+        <AnalysisSectionCard title="Diseño Visual" data={site.visual_design} />
+        <AnalysisSectionCard title="Experiencia de Usuario" data={site.user_experience} />
+        <AnalysisSectionCard title="Estrategia de Contenido" data={site.content_quality} />
+        <AnalysisSectionCard title="Rendimiento Técnico" data={site.technical_performance} />
       </div>
     </div>
   );
@@ -510,14 +510,14 @@ function AnalysisSectionCard({ title, data }: { title: string, data: SiteAnalysi
       <div className="bg-muted/30 px-6 py-3 border-b border-border flex justify-between items-center">
         <h4 className="font-medium text-foreground">{title}</h4>
         <Badge variant={data.score >= 8 ? "default" : data.score >= 5 ? "secondary" : "destructive"}>
-          Score: {data.score}
+          Puntuación: {data.score}
         </Badge>
       </div>
       <CardContent className="p-6 space-y-4">
         <p className="text-sm text-muted-foreground italic">"{data.observations}"</p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <h5 className="text-xs font-bold text-emerald-500 uppercase mb-2">Strengths</h5>
+            <h5 className="text-xs font-bold text-emerald-500 uppercase mb-2">Fortalezas</h5>
             <ul className="space-y-1">
               {data.strengths.map((s, i) => (
                 <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
@@ -527,7 +527,7 @@ function AnalysisSectionCard({ title, data }: { title: string, data: SiteAnalysi
             </ul>
           </div>
           <div>
-            <h5 className="text-xs font-bold text-red-500 uppercase mb-2">Weaknesses</h5>
+            <h5 className="text-xs font-bold text-red-500 uppercase mb-2">Debilidades</h5>
             <ul className="space-y-1">
               {data.weaknesses.map((s, i) => (
                 <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
@@ -560,7 +560,7 @@ function CouncilOpinionCard({ opinion }: { opinion: CouncilOpinion }) {
             {opinion.personaName}
           </CardTitle>
           <Badge variant="outline" className="text-xs">
-            {opinion.confidence}% confident
+            {opinion.confidence}% de confianza
           </Badge>
         </div>
       </CardHeader>
@@ -569,7 +569,7 @@ function CouncilOpinionCard({ opinion }: { opinion: CouncilOpinion }) {
         
         {opinion.findings.length > 0 && (
           <div className="space-y-2">
-            <h5 className="text-xs font-medium text-foreground/70 uppercase">Key Findings</h5>
+            <h5 className="text-xs font-medium text-foreground/70 uppercase">Hallazgos Clave</h5>
             {opinion.findings.slice(0, 3).map((finding, i) => (
               <div key={i} className="p-2 bg-background/40 rounded text-xs space-y-1">
                 <div className="flex items-center gap-2">
@@ -618,10 +618,10 @@ function FinalRankedIssueCard({ issue, rank }: { issue: FinalRankedIssue; rank: 
       </span>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-foreground truncate">{issue.issue}</p>
-        <p className="text-xs text-muted-foreground">Severity: {issue.severity}</p>
+        <p className="text-xs text-muted-foreground">Severidad: {issue.severity}</p>
       </div>
       <div className="flex items-center gap-2 shrink-0">
-        <span className="text-xs text-muted-foreground">{issue.votes} votes</span>
+        <span className="text-xs text-muted-foreground">{issue.votes} votos</span>
         <Badge className={priorityColors[issue.priority] || priorityColors.P2}>
           {issue.priority}
         </Badge>
@@ -658,16 +658,16 @@ function PrioritizedTaskCard({ task }: { task: PrioritizedTask }) {
       </CardHeader>
       <CardContent className="space-y-3">
         <div>
-          <h5 className="text-xs font-medium text-red-400 uppercase mb-1">Problem</h5>
+          <h5 className="text-xs font-medium text-red-400 uppercase mb-1">Problema</h5>
           <p className="text-sm text-muted-foreground">{task.problem}</p>
         </div>
         <div>
-          <h5 className="text-xs font-medium text-emerald-400 uppercase mb-1">Solution</h5>
+          <h5 className="text-xs font-medium text-emerald-400 uppercase mb-1">Solución</h5>
           <p className="text-sm text-muted-foreground">{task.solution}</p>
         </div>
         {task.success_metrics && task.success_metrics.length > 0 && (
           <div>
-            <h5 className="text-xs font-medium text-blue-400 uppercase mb-1">Success Metrics</h5>
+            <h5 className="text-xs font-medium text-blue-400 uppercase mb-1">Métricas de Éxito</h5>
             <ul className="space-y-1">
               {task.success_metrics.map((metric, i) => (
                 <li key={i} className="text-xs text-muted-foreground flex items-start gap-2">
