@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Share2, Activity } from "lucide-react";
+import { Share2, Activity, Book } from "lucide-react";
 import { Link as WouterLink } from "wouter";
 import { Button } from "@/components/ui/button";
 import { ReportView } from "@/components/agent/Report";
@@ -116,7 +116,22 @@ export default function Dashboard() {
         animate={{ opacity: step === "report" ? 0 : 1, height: step === "report" ? 0 : "auto", overflow: "hidden" }}
         role="banner"
       >
-        <nav className="flex justify-center sm:justify-end mb-4" aria-label="Dashboard navigation">
+        <nav className="flex justify-center sm:justify-end gap-2 mb-4" aria-label="Dashboard navigation">
+          <WouterLink 
+            href="/guide"
+            aria-label="Go to User Guide to learn how to use the application"
+          >
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="gap-2 min-h-[44px] min-w-[44px] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2" 
+              data-testid="link-user-guide"
+              aria-label="User Guide - Learn how to use the application"
+            >
+              <Book className="w-4 h-4" aria-hidden="true" />
+              <span className="hidden sm:inline">Guide</span>
+            </Button>
+          </WouterLink>
           <WouterLink 
             href="/performance"
             aria-label="Go to Agent Monitoring dashboard to view agent performance metrics"
@@ -129,7 +144,7 @@ export default function Dashboard() {
               aria-label="Agent Monitoring - View performance dashboard"
             >
               <Activity className="w-4 h-4" aria-hidden="true" />
-              Agent Monitoring
+              <span className="hidden sm:inline">Agent Monitoring</span>
             </Button>
           </WouterLink>
         </nav>
