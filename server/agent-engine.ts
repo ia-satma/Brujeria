@@ -175,11 +175,16 @@ export interface CompletionCriteria {
 async function runDataExtractor(url: string, log?: LogCallback): Promise<{ html: string; text: string }> {
   log?.(`[Scraping_Orchestrator] > [Data_Extractor] Fetching raw DOM from ${url}...`);
   
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
+  
   const response = await fetch(url, {
     headers: {
       'User-Agent': 'Mozilla/5.0 (compatible; WebBenchmarkBot/1.0)',
     },
+    signal: controller.signal,
   });
+  clearTimeout(timeoutId);
 
   if (!response.ok) {
     throw new Error(`Failed to fetch ${url}: ${response.statusText}`);

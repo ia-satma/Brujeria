@@ -108,16 +108,31 @@ export async function registerRoutes(
   });
 
   app.post("/api/analyze-stream", async (req, res) => {
-    let isClientConnected = true;
     let keepaliveInterval: NodeJS.Timeout | null = null;
+    let connectionClosed = false;
     
+    // Track when connection actually closes (for cleanup only, not for aborting)
     req.on('close', () => {
-      isClientConnected = false;
+      connectionClosed = true;
       if (keepaliveInterval) {
         clearInterval(keepaliveInterval);
       }
-      console.log('[SSE] Client disconnected');
+      console.log('[SSE] Connection close event received');
     });
+    
+    // Helper to safely write to response
+    const safeWrite = (data: string): boolean => {
+      try {
+        if (res.writableEnded) {
+          return false;
+        }
+        res.write(data);
+        return true;
+      } catch (error) {
+        console.log('[SSE] Write failed:', error);
+        return false;
+      }
+    };
     
     try {
       const { clientUrl, competitorUrls } = analyzeRequestSchema.parse(req.body);
@@ -126,17 +141,15 @@ export async function registerRoutes(
       res.setHeader('Cache-Control', 'no-cache');
       res.setHeader('Connection', 'keep-alive');
       res.setHeader('X-Accel-Buffering', 'no');
+      res.flushHeaders();
 
       keepaliveInterval = setInterval(() => {
-        if (isClientConnected) {
-          res.write(`: keepalive\n\n`);
-        }
-      }, 15000);
+        safeWrite(`: keepalive\n\n`);
+      }, 10000);
 
       const sendLog: LogCallback = (message: string) => {
-        if (isClientConnected) {
-          res.write(`data: ${JSON.stringify({ type: 'log', message })}\n\n`);
-        }
+        const data = `data: ${JSON.stringify({ type: 'log', message })}\n\n`;
+        safeWrite(data);
       };
 
       const allUrls = [clientUrl, ...competitorUrls];
@@ -148,11 +161,6 @@ export async function registerRoutes(
       sendLog(`[Benchmarking_Manager] Each agent deploys 3 hyperspecialized subagents.`);
 
       for (const url of allUrls) {
-        if (!isClientConnected) {
-          console.log('[SSE] Client disconnected, aborting analysis');
-          break;
-        }
-        
         try {
           const domain = new URL(url).hostname.replace('www.', '').split('.')[0];
           const domainName = domain.charAt(0).toUpperCase() + domain.slice(1);
@@ -186,16 +194,10 @@ export async function registerRoutes(
           sendLog(`  - Technical Performance: ${analysis.technical_performance.score}/10`);
           
         } catch (error) {
-          sendLog(`[ERROR] Failed to analyze ${url}. Skipping.`);
+          const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+          sendLog(`[ERROR] Failed to analyze ${url}: ${errorMsg}. Skipping.`);
           console.error(`Stream analysis error for ${url}:`, error);
         }
-      }
-
-      if (!isClientConnected) {
-        if (keepaliveInterval) {
-          clearInterval(keepaliveInterval);
-        }
-        return;
       }
 
       if (analyses.length === 0) {
@@ -290,14 +292,17 @@ export async function registerRoutes(
       res.write(`data: ${JSON.stringify({ type: 'complete', report: serializedReport, reportId: savedReportId })}\n\n`);
       res.end();
     } catch (error) {
-      console.error("Stream analysis error:", error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorStack = error instanceof Error ? error.stack : '';
+      console.error("Stream analysis error:", errorMessage);
+      console.error("Error stack:", errorStack);
       
       if (keepaliveInterval) {
         clearInterval(keepaliveInterval);
       }
       
-      if (isClientConnected) {
-        res.write(`data: ${JSON.stringify({ type: 'error', message: 'Analysis failed' })}\n\n`);
+      safeWrite(`data: ${JSON.stringify({ type: 'error', message: `Analysis failed: ${errorMessage}` })}\n\n`);
+      if (!res.writableEnded) {
         res.end();
       }
     }
