@@ -18,6 +18,14 @@ import {
 } from "./agent-engine";
 import { storage } from "./storage";
 import { generateReportPDF } from "./pdf-generator";
+import { getPCloudClient, getAgentFolderPath } from "./pcloud-client";
+import { 
+  getAgentKnowledgeService, 
+  initializeAgentKnowledge, 
+  AGENT_NAMES, 
+  PRIMARY_AGENTS,
+  type AgentName 
+} from "./agent-knowledge";
 
 const analyzeRequestSchema = z.object({
   clientUrl: z.string().url(),
@@ -349,6 +357,174 @@ export async function registerRoutes(
     } catch (error) {
       console.error("PDF generation error:", error);
       res.status(500).json({ error: "Failed to generate PDF" });
+    }
+  });
+
+  app.get("/api/pcloud/test", async (req, res) => {
+    try {
+      const pcloud = getPCloudClient();
+      const connectionInfo = await pcloud.testConnection();
+      
+      const testFolder = getAgentFolderPath("Visual_Aesthetics_Agent");
+      const folderResult = await pcloud.ensureFolderPath(testFolder);
+      
+      res.json({
+        success: true,
+        connection: connectionInfo,
+        testFolder: {
+          path: testFolder,
+          folderId: folderResult.folderid,
+        },
+      });
+    } catch (error) {
+      console.error("pCloud test error:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
+  app.get("/api/pcloud/list/:agentName?", async (req, res) => {
+    try {
+      const pcloud = getPCloudClient();
+      const agentName = req.params.agentName;
+      
+      let folderPath = "/BenchmarkingCouncil";
+      if (agentName) {
+        folderPath = getAgentFolderPath(agentName);
+      }
+      
+      const contents = await pcloud.listFolder(folderPath);
+      
+      res.json({
+        success: true,
+        path: folderPath,
+        contents,
+      });
+    } catch (error) {
+      console.error("pCloud list error:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
+  app.post("/api/knowledge/initialize", async (req, res) => {
+    try {
+      await initializeAgentKnowledge();
+      
+      res.json({
+        success: true,
+        message: "Agent knowledge folders initialized successfully",
+        agents: Object.values(AGENT_NAMES),
+      });
+    } catch (error) {
+      console.error("Knowledge initialization error:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
+  app.get("/api/knowledge/stats/:agentName", async (req, res) => {
+    try {
+      const agentName = req.params.agentName as AgentName;
+      
+      if (!Object.values(AGENT_NAMES).includes(agentName)) {
+        return res.status(400).json({
+          success: false,
+          error: `Invalid agent name: ${agentName}`,
+          validAgents: Object.values(AGENT_NAMES),
+        });
+      }
+      
+      const service = getAgentKnowledgeService();
+      const stats = await service.getAgentStats(agentName);
+      
+      res.json({
+        success: true,
+        stats,
+      });
+    } catch (error) {
+      console.error("Knowledge stats error:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
+  app.post("/api/knowledge/save-test", async (req, res) => {
+    try {
+      const service = getAgentKnowledgeService();
+      
+      const result = await service.saveAnalysisResult(
+        AGENT_NAMES.VISUAL_AESTHETICS_AGENT,
+        {
+          url: "https://example.com",
+          score: 7.5,
+          observations: "Test analysis observation",
+          strengths: ["Good color contrast", "Clean typography"],
+          weaknesses: ["Outdated design patterns"],
+          subagentResults: [
+            {
+              name: "Color_Palette_Analyzer",
+              finding: "Professional color scheme with good contrast",
+              score: 8,
+              details: ["Primary blue (#2563eb) provides good brand recognition"],
+            },
+          ],
+        }
+      );
+      
+      res.json({
+        success: true,
+        message: "Test knowledge document saved",
+        result,
+      });
+    } catch (error) {
+      console.error("Knowledge save test error:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
+  app.get("/api/knowledge/documents/:agentName", async (req, res) => {
+    try {
+      const agentName = req.params.agentName as AgentName;
+      const limit = parseInt(req.query.limit as string) || 10;
+      const documentType = req.query.type as string | undefined;
+      
+      if (!Object.values(AGENT_NAMES).includes(agentName)) {
+        return res.status(400).json({
+          success: false,
+          error: `Invalid agent name: ${agentName}`,
+        });
+      }
+      
+      const service = getAgentKnowledgeService();
+      const documents = await service.getAgentDocuments(agentName, {
+        documentType: documentType as any,
+        limit,
+      });
+      
+      res.json({
+        success: true,
+        agentName,
+        count: documents.length,
+        documents,
+      });
+    } catch (error) {
+      console.error("Knowledge documents error:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
     }
   });
 
