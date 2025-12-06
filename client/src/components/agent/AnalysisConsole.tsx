@@ -95,6 +95,13 @@ function getStageStatus(stage: Stage, logs: string[], allStages: Stage[], stageI
     logs.some(log => log.includes(`[${agent}]`))
   );
   
+  const isLastStage = stageIndex === allStages.length - 1;
+  const analysisComplete = logs.some(log => log.includes('[COMPLETE]'));
+  
+  if (isLastStage && hasStageActivity && analysisComplete) {
+    return "completed";
+  }
+  
   const laterStageActive = allStages.slice(stageIndex + 1).some(laterStage =>
     laterStage.agents.some(agent => logs.some(log => log.includes(`[${agent}]`)))
   );

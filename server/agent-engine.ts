@@ -1116,9 +1116,13 @@ async function runVisualAestheticsAgent(content: SiteContent, log?: LogCallback)
   analysisResult.metacognition = metacognition;
   log?.(`  [Visual_Aesthetics_Agent] Confidence: ${metacognition.confidence.overallConfidence.toFixed(2)}`);
   
-  await saveAgentAnalysisResult(AGENT_NAMES.VISUAL_AESTHETICS_AGENT, content.url, analysisResult, log);
+  saveAgentAnalysisResult(AGENT_NAMES.VISUAL_AESTHETICS_AGENT, content.url, analysisResult, log).catch(err => {
+    console.error('[Visual_Aesthetics_Agent] Knowledge save failed:', err.message);
+  });
   
-  await learnFromAnalysis("Visual_Aesthetics_Agent", analysisResult, context, log);
+  learnFromAnalysis("Visual_Aesthetics_Agent", analysisResult, context, log).catch(err => {
+    console.error('[Visual_Aesthetics_Agent] Learning failed:', err.message);
+  });
   
   try {
     const evolutionService = getEvolutionService();
@@ -1188,9 +1192,13 @@ async function runUXNavigationAgent(content: SiteContent, log?: LogCallback): Pr
   analysisResult.metacognition = metacognition;
   log?.(`  [UX_Navigation_Agent] Confidence: ${metacognition.confidence.overallConfidence.toFixed(2)}`);
   
-  await saveAgentAnalysisResult(AGENT_NAMES.UX_NAVIGATION_AGENT, content.url, analysisResult, log);
+  saveAgentAnalysisResult(AGENT_NAMES.UX_NAVIGATION_AGENT, content.url, analysisResult, log).catch(err => {
+    console.error('[UX_Navigation_Agent] Knowledge save failed:', err.message);
+  });
   
-  await learnFromAnalysis("UX_Navigation_Agent", analysisResult, context, log);
+  learnFromAnalysis("UX_Navigation_Agent", analysisResult, context, log).catch(err => {
+    console.error('[UX_Navigation_Agent] Learning failed:', err.message);
+  });
   
   try {
     const evolutionService = getEvolutionService();
@@ -1260,9 +1268,13 @@ async function runContentStorytellingAgent(content: SiteContent, log?: LogCallba
   analysisResult.metacognition = metacognition;
   log?.(`  [Content_Storytelling_Agent] Confidence: ${metacognition.confidence.overallConfidence.toFixed(2)}`);
   
-  await saveAgentAnalysisResult(AGENT_NAMES.CONTENT_STORYTELLING_AGENT, content.url, analysisResult, log);
+  saveAgentAnalysisResult(AGENT_NAMES.CONTENT_STORYTELLING_AGENT, content.url, analysisResult, log).catch(err => {
+    console.error('[Content_Storytelling_Agent] Knowledge save failed:', err.message);
+  });
   
-  await learnFromAnalysis("Content_Storytelling_Agent", analysisResult, context, log);
+  learnFromAnalysis("Content_Storytelling_Agent", analysisResult, context, log).catch(err => {
+    console.error('[Content_Storytelling_Agent] Learning failed:', err.message);
+  });
   
   try {
     const evolutionService = getEvolutionService();
@@ -1332,9 +1344,13 @@ async function runTechnicalPerformanceAgent(content: SiteContent, log?: LogCallb
   analysisResult.metacognition = metacognition;
   log?.(`  [Technical_Performance_Agent] Confidence: ${metacognition.confidence.overallConfidence.toFixed(2)}`);
   
-  await saveAgentAnalysisResult(AGENT_NAMES.TECHNICAL_PERFORMANCE_AGENT, content.url, analysisResult, log);
+  saveAgentAnalysisResult(AGENT_NAMES.TECHNICAL_PERFORMANCE_AGENT, content.url, analysisResult, log).catch(err => {
+    console.error('[Technical_Performance_Agent] Knowledge save failed:', err.message);
+  });
   
-  await learnFromAnalysis("Technical_Performance_Agent", analysisResult, context, log);
+  learnFromAnalysis("Technical_Performance_Agent", analysisResult, context, log).catch(err => {
+    console.error('[Technical_Performance_Agent] Learning failed:', err.message);
+  });
   
   try {
     const evolutionService = getEvolutionService();
