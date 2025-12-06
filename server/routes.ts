@@ -1214,5 +1214,208 @@ export async function registerRoutes(
     }
   });
 
+  // ============================================================================
+  // GOLDEN DATASET VALIDATION API
+  // ============================================================================
+
+  const runValidationSchema = z.object({
+    toleranceOverride: z.number().min(0).max(5).optional(),
+    initiatedBy: z.string().optional(),
+  });
+
+  app.post("/api/validation/run", async (req, res) => {
+    try {
+      const { runGoldenDatasetValidation } = await import("./validation/golden-dataset-service");
+      
+      const parsed = runValidationSchema.parse(req.body || {});
+      
+      const logs: string[] = [];
+      const log = (msg: string) => {
+        logs.push(msg);
+        console.log(msg);
+      };
+      
+      const result = await runGoldenDatasetValidation({
+        toleranceOverride: parsed.toleranceOverride,
+        initiatedBy: parsed.initiatedBy,
+        log,
+      });
+      
+      res.json({
+        success: true,
+        ...result,
+        logs,
+      });
+    } catch (error) {
+      console.error("Validation run error:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          error: "Invalid request",
+          details: error.errors,
+        });
+      }
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
+  app.get("/api/validation/runs", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 10;
+      const runs = await storage.getRecentValidationRuns(limit);
+      
+      res.json({
+        success: true,
+        runs,
+      });
+    } catch (error) {
+      console.error("Get validation runs error:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
+  app.get("/api/validation/runs/:id", async (req, res) => {
+    try {
+      const { getValidationRunWithResults } = await import("./validation/golden-dataset-service");
+      
+      const runId = parseInt(req.params.id);
+      if (isNaN(runId)) {
+        return res.status(400).json({
+          success: false,
+          error: "Invalid run ID",
+        });
+      }
+      
+      const result = await getValidationRunWithResults(runId);
+      
+      if (!result) {
+        return res.status(404).json({
+          success: false,
+          error: "Validation run not found",
+        });
+      }
+      
+      res.json({
+        success: true,
+        ...result,
+      });
+    } catch (error) {
+      console.error("Get validation run error:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
+  app.get("/api/validation/sites", async (req, res) => {
+    try {
+      const enabledOnly = req.query.enabledOnly !== 'false';
+      const sites = await storage.listGoldenDatasetSites(enabledOnly);
+      
+      res.json({
+        success: true,
+        sites,
+      });
+    } catch (error) {
+      console.error("Get validation sites error:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
+  const upsertSiteSchema = z.object({
+    url: z.string().url(),
+    displayName: z.string().min(1),
+    category: z.string().min(1),
+    expectations: z.object({
+      visual_design: z.object({ min: z.number(), max: z.number(), tolerance: z.number().optional() }),
+      user_experience: z.object({ min: z.number(), max: z.number(), tolerance: z.number().optional() }),
+      content_quality: z.object({ min: z.number(), max: z.number(), tolerance: z.number().optional() }),
+      technical_performance: z.object({ min: z.number(), max: z.number(), tolerance: z.number().optional() }),
+    }),
+    enabled: z.number().min(0).max(1).optional(),
+  });
+
+  app.post("/api/validation/sites", async (req, res) => {
+    try {
+      const parsed = upsertSiteSchema.parse(req.body);
+      const site = await storage.upsertGoldenDatasetSite(parsed);
+      
+      res.json({
+        success: true,
+        site,
+      });
+    } catch (error) {
+      console.error("Upsert validation site error:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          error: "Invalid request",
+          details: error.errors,
+        });
+      }
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
+  app.delete("/api/validation/sites/:id", async (req, res) => {
+    try {
+      const siteId = parseInt(req.params.id);
+      if (isNaN(siteId)) {
+        return res.status(400).json({
+          success: false,
+          error: "Invalid site ID",
+        });
+      }
+      
+      await storage.deleteGoldenDatasetSite(siteId);
+      
+      res.json({
+        success: true,
+        message: "Site deleted",
+      });
+    } catch (error) {
+      console.error("Delete validation site error:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
+  app.post("/api/validation/seed", async (req, res) => {
+    try {
+      const { seedGoldenDataset } = await import("./validation/golden-dataset-service");
+      await seedGoldenDataset();
+      
+      const sites = await storage.listGoldenDatasetSites(false);
+      
+      res.json({
+        success: true,
+        message: "Golden dataset seeded successfully",
+        sitesCount: sites.length,
+        sites,
+      });
+    } catch (error) {
+      console.error("Seed golden dataset error:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
   return httpServer;
 }

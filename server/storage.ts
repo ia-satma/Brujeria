@@ -13,6 +13,15 @@ import {
   type AgentLearningEvent,
   type InsertAgentLearningEvent,
   agentLearningEvents,
+  type GoldenDatasetSite,
+  type InsertGoldenDatasetSite,
+  goldenDatasetSites,
+  type ValidationRun,
+  type InsertValidationRun,
+  validationRuns,
+  type ValidationResult,
+  type InsertValidationResult,
+  validationResults,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
@@ -37,6 +46,19 @@ export interface IStorage {
   
   logAgentLearningEvent(event: InsertAgentLearningEvent): Promise<AgentLearningEvent>;
   getAgentLearningEvents(agentName: string, limit?: number): Promise<AgentLearningEvent[]>;
+
+  listGoldenDatasetSites(enabledOnly?: boolean): Promise<GoldenDatasetSite[]>;
+  getGoldenDatasetSite(id: number): Promise<GoldenDatasetSite | undefined>;
+  upsertGoldenDatasetSite(site: InsertGoldenDatasetSite): Promise<GoldenDatasetSite>;
+  deleteGoldenDatasetSite(id: number): Promise<void>;
+  
+  createValidationRun(run: InsertValidationRun): Promise<ValidationRun>;
+  updateValidationRun(id: number, updates: Partial<ValidationRun>): Promise<ValidationRun>;
+  getValidationRun(id: number): Promise<ValidationRun | undefined>;
+  getRecentValidationRuns(limit?: number): Promise<ValidationRun[]>;
+  
+  addValidationResult(result: InsertValidationResult): Promise<ValidationResult>;
+  getValidationResults(runId: number): Promise<ValidationResult[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -202,6 +224,108 @@ export class MemStorage implements IStorage {
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
       .slice(0, limit);
   }
+
+  private goldenSites: Map<number, GoldenDatasetSite> = new Map();
+  private validationRunsMap: Map<number, ValidationRun> = new Map();
+  private validationResultsMap: Map<number, ValidationResult[]> = new Map();
+  private goldenSiteIdCounter = 1;
+  private validationRunIdCounter = 1;
+  private validationResultIdCounter = 1;
+
+  async listGoldenDatasetSites(enabledOnly: boolean = true): Promise<GoldenDatasetSite[]> {
+    const sites = Array.from(this.goldenSites.values());
+    if (enabledOnly) {
+      return sites.filter(s => s.enabled === 1);
+    }
+    return sites;
+  }
+
+  async getGoldenDatasetSite(id: number): Promise<GoldenDatasetSite | undefined> {
+    return this.goldenSites.get(id);
+  }
+
+  async upsertGoldenDatasetSite(site: InsertGoldenDatasetSite): Promise<GoldenDatasetSite> {
+    const existing = Array.from(this.goldenSites.values()).find(s => s.url === site.url);
+    const now = new Date();
+    if (existing) {
+      const updated: GoldenDatasetSite = { ...existing, ...site, updatedAt: now };
+      this.goldenSites.set(existing.id, updated);
+      return updated;
+    }
+    const id = this.goldenSiteIdCounter++;
+    const newSite: GoldenDatasetSite = {
+      id,
+      url: site.url,
+      displayName: site.displayName,
+      category: site.category,
+      expectations: site.expectations,
+      enabled: site.enabled ?? 1,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.goldenSites.set(id, newSite);
+    return newSite;
+  }
+
+  async deleteGoldenDatasetSite(id: number): Promise<void> {
+    this.goldenSites.delete(id);
+  }
+
+  async createValidationRun(run: InsertValidationRun): Promise<ValidationRun> {
+    const id = this.validationRunIdCounter++;
+    const now = new Date();
+    const newRun: ValidationRun = {
+      id,
+      status: run.status ?? "running",
+      totalSites: run.totalSites ?? 0,
+      passedSites: run.passedSites ?? 0,
+      failedSites: run.failedSites ?? 0,
+      defaultTolerance: run.defaultTolerance ?? 1.0,
+      initiatedBy: run.initiatedBy ?? null,
+      executedAt: now,
+      completedAt: run.completedAt ?? null,
+    };
+    this.validationRunsMap.set(id, newRun);
+    return newRun;
+  }
+
+  async updateValidationRun(id: number, updates: Partial<ValidationRun>): Promise<ValidationRun> {
+    const existing = this.validationRunsMap.get(id);
+    if (!existing) {
+      throw new Error(`Validation run ${id} not found`);
+    }
+    const updated = { ...existing, ...updates };
+    this.validationRunsMap.set(id, updated);
+    return updated;
+  }
+
+  async getValidationRun(id: number): Promise<ValidationRun | undefined> {
+    return this.validationRunsMap.get(id);
+  }
+
+  async getRecentValidationRuns(limit: number = 10): Promise<ValidationRun[]> {
+    return Array.from(this.validationRunsMap.values())
+      .sort((a, b) => b.executedAt.getTime() - a.executedAt.getTime())
+      .slice(0, limit);
+  }
+
+  async addValidationResult(result: InsertValidationResult): Promise<ValidationResult> {
+    const id = this.validationResultIdCounter++;
+    const now = new Date();
+    const newResult: ValidationResult = {
+      id,
+      ...result,
+      createdAt: now,
+    };
+    const existing = this.validationResultsMap.get(result.runId) || [];
+    existing.push(newResult);
+    this.validationResultsMap.set(result.runId, existing);
+    return newResult;
+  }
+
+  async getValidationResults(runId: number): Promise<ValidationResult[]> {
+    return this.validationResultsMap.get(runId) || [];
+  }
 }
 
 export class DatabaseStorage implements IStorage {
@@ -328,6 +452,75 @@ export class DatabaseStorage implements IStorage {
       .where(eq(agentLearningEvents.agentName, agentName))
       .orderBy(desc(agentLearningEvents.createdAt))
       .limit(limit);
+  }
+
+  async listGoldenDatasetSites(enabledOnly: boolean = true): Promise<GoldenDatasetSite[]> {
+    if (enabledOnly) {
+      return db.select().from(goldenDatasetSites)
+        .where(eq(goldenDatasetSites.enabled, 1))
+        .orderBy(goldenDatasetSites.displayName);
+    }
+    return db.select().from(goldenDatasetSites).orderBy(goldenDatasetSites.displayName);
+  }
+
+  async getGoldenDatasetSite(id: number): Promise<GoldenDatasetSite | undefined> {
+    const [site] = await db.select().from(goldenDatasetSites).where(eq(goldenDatasetSites.id, id));
+    return site;
+  }
+
+  async upsertGoldenDatasetSite(site: InsertGoldenDatasetSite): Promise<GoldenDatasetSite> {
+    const [existing] = await db.select().from(goldenDatasetSites)
+      .where(eq(goldenDatasetSites.url, site.url));
+    
+    if (existing) {
+      const [updated] = await db.update(goldenDatasetSites)
+        .set({ ...site, updatedAt: new Date() })
+        .where(eq(goldenDatasetSites.id, existing.id))
+        .returning();
+      return updated;
+    }
+    
+    const [created] = await db.insert(goldenDatasetSites).values(site).returning();
+    return created;
+  }
+
+  async deleteGoldenDatasetSite(id: number): Promise<void> {
+    await db.delete(goldenDatasetSites).where(eq(goldenDatasetSites.id, id));
+  }
+
+  async createValidationRun(run: InsertValidationRun): Promise<ValidationRun> {
+    const [created] = await db.insert(validationRuns).values(run).returning();
+    return created;
+  }
+
+  async updateValidationRun(id: number, updates: Partial<ValidationRun>): Promise<ValidationRun> {
+    const [updated] = await db.update(validationRuns)
+      .set(updates)
+      .where(eq(validationRuns.id, id))
+      .returning();
+    return updated;
+  }
+
+  async getValidationRun(id: number): Promise<ValidationRun | undefined> {
+    const [run] = await db.select().from(validationRuns).where(eq(validationRuns.id, id));
+    return run;
+  }
+
+  async getRecentValidationRuns(limit: number = 10): Promise<ValidationRun[]> {
+    return db.select().from(validationRuns)
+      .orderBy(desc(validationRuns.executedAt))
+      .limit(limit);
+  }
+
+  async addValidationResult(result: InsertValidationResult): Promise<ValidationResult> {
+    const [created] = await db.insert(validationResults).values(result).returning();
+    return created;
+  }
+
+  async getValidationResults(runId: number): Promise<ValidationResult[]> {
+    return db.select().from(validationResults)
+      .where(eq(validationResults.runId, runId))
+      .orderBy(validationResults.siteUrl, validationResults.category);
   }
 }
 
