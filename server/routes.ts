@@ -1085,6 +1085,7 @@ export async function registerRoutes(
 
   const executeSubagentSchema = z.object({
     context: z.string().min(1),
+    evolveSkills: z.boolean().optional().default(false),
   });
 
   app.post("/api/subagents/:agentName/:subagentId/execute", async (req, res) => {
@@ -1099,6 +1100,21 @@ export async function registerRoutes(
       const log = (msg: string) => logs.push(msg);
       
       const result = await factory.executeSubagent(subagentId, agentName, parsed.context, log);
+      
+      // Optionally trigger skill evolution for standalone API testing.
+      // During full analysis, runDynamicSubagentsForAgent handles evolution automatically.
+      if (parsed.evolveSkills) {
+        const subagent = await factory.getSubagent(agentName, subagentId);
+        if (subagent && subagent.skills.length > 0) {
+          for (const skillId of subagent.skills) {
+            await factory.evolveSkillExpertise(agentName, skillId, {
+              score: result.score,
+              successRate: result.confidence,
+            });
+          }
+          log(`    > [${subagent.name}] Evolved ${subagent.skills.length} skills`);
+        }
+      }
       
       res.json({
         success: true,

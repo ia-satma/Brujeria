@@ -17,13 +17,15 @@ export const KnowledgeBaseSchema = z.object({
   
   benchmarks: z.array(z.object({
     metric: z.string(),
-    industry: z.string(),
+    industry: z.string().optional(),
+    category: z.string().optional(),
     goodRange: z.object({
       min: z.number(),
       max: z.number(),
-    }),
-    excellentThreshold: z.number(),
-    poorThreshold: z.number(),
+    }).optional(),
+    goodThreshold: z.number().optional(),
+    excellentThreshold: z.number().optional(),
+    poorThreshold: z.number().optional(),
     source: z.string().optional(),
   })),
   
