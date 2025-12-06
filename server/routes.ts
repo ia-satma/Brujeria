@@ -106,15 +106,35 @@ export async function registerRoutes(
   });
 
   app.post("/api/analyze-stream", async (req, res) => {
+    let isClientConnected = true;
+    let keepaliveInterval: NodeJS.Timeout | null = null;
+    
+    req.on('close', () => {
+      isClientConnected = false;
+      if (keepaliveInterval) {
+        clearInterval(keepaliveInterval);
+      }
+      console.log('[SSE] Client disconnected');
+    });
+    
     try {
       const { clientUrl, competitorUrls } = analyzeRequestSchema.parse(req.body);
       
       res.setHeader('Content-Type', 'text/event-stream');
       res.setHeader('Cache-Control', 'no-cache');
       res.setHeader('Connection', 'keep-alive');
+      res.setHeader('X-Accel-Buffering', 'no');
+
+      keepaliveInterval = setInterval(() => {
+        if (isClientConnected) {
+          res.write(`: keepalive\n\n`);
+        }
+      }, 15000);
 
       const sendLog: LogCallback = (message: string) => {
-        res.write(`data: ${JSON.stringify({ type: 'log', message })}\n\n`);
+        if (isClientConnected) {
+          res.write(`data: ${JSON.stringify({ type: 'log', message })}\n\n`);
+        }
       };
 
       const allUrls = [clientUrl, ...competitorUrls];
@@ -126,6 +146,11 @@ export async function registerRoutes(
       sendLog(`[Benchmarking_Manager] Each agent deploys 3 hyperspecialized subagents.`);
 
       for (const url of allUrls) {
+        if (!isClientConnected) {
+          console.log('[SSE] Client disconnected, aborting analysis');
+          break;
+        }
+        
         try {
           const domain = new URL(url).hostname.replace('www.', '').split('.')[0];
           const domainName = domain.charAt(0).toUpperCase() + domain.slice(1);
@@ -164,8 +189,18 @@ export async function registerRoutes(
         }
       }
 
+      if (!isClientConnected) {
+        if (keepaliveInterval) {
+          clearInterval(keepaliveInterval);
+        }
+        return;
+      }
+
       if (analyses.length === 0) {
         sendLog(`[FATAL] No websites could be analyzed.`);
+        if (keepaliveInterval) {
+          clearInterval(keepaliveInterval);
+        }
         res.write(`data: ${JSON.stringify({ type: 'error', message: 'Failed to analyze any websites' })}\n\n`);
         res.end();
         return;
@@ -230,12 +265,23 @@ export async function registerRoutes(
         completion_criteria: completionCriteria,
       };
 
+      if (keepaliveInterval) {
+        clearInterval(keepaliveInterval);
+      }
+      
       res.write(`data: ${JSON.stringify({ type: 'complete', report })}\n\n`);
       res.end();
     } catch (error) {
       console.error("Stream analysis error:", error);
-      res.write(`data: ${JSON.stringify({ type: 'error', message: 'Analysis failed' })}\n\n`);
-      res.end();
+      
+      if (keepaliveInterval) {
+        clearInterval(keepaliveInterval);
+      }
+      
+      if (isClientConnected) {
+        res.write(`data: ${JSON.stringify({ type: 'error', message: 'Analysis failed' })}\n\n`);
+        res.end();
+      }
     }
   });
 

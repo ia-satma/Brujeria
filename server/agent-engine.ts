@@ -929,13 +929,23 @@ Return ONLY valid JSON:
 // SUBAGENT EXECUTION
 // ============================================================================
 
+const API_TIMEOUT_MS = 60000;
+
 async function runSubagent(
   name: string,
   prompt: string,
   context: string,
-  log?: LogCallback
+  log?: LogCallback,
+  abortSignal?: AbortSignal
 ): Promise<SubAgentResult> {
   log?.(`    > [${name}] Analyzing...`);
+  
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+  
+  if (abortSignal) {
+    abortSignal.addEventListener('abort', () => controller.abort());
+  }
   
   try {
     const completion = await openai.chat.completions.create({
@@ -946,8 +956,10 @@ async function runSubagent(
       ],
       temperature: 0.7,
       response_format: { type: "json_object" }
-    });
+    }, { signal: controller.signal });
 
+    clearTimeout(timeoutId);
+    
     const result = JSON.parse(completion.choices[0].message.content || '{}');
     
     log?.(`    > [${name}] Score: ${result.score}/10 - ${result.finding}`);
@@ -958,7 +970,19 @@ async function runSubagent(
       score: result.score || 5,
       details: result.details || [],
     };
-  } catch (error) {
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    
+    if (error.name === 'AbortError' || controller.signal.aborted) {
+      log?.(`    > [${name}] TIMEOUT: Request exceeded ${API_TIMEOUT_MS/1000}s`);
+      return {
+        name,
+        finding: 'Analysis timed out',
+        score: 5,
+        details: ['Request timeout - try again later'],
+      };
+    }
+    
     log?.(`    > [${name}] ERROR: ${error}`);
     return {
       name,
