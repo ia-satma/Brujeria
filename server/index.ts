@@ -1,7 +1,9 @@
 import express, { type Request, Response, NextFunction } from "express";
+import swaggerUi from "swagger-ui-express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
+import { openApiSpec } from "./openapi-spec";
 
 const app = express();
 const httpServer = createServer(app);
@@ -57,6 +59,18 @@ app.use((req, res, next) => {
   });
 
   next();
+});
+
+app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(openApiSpec, {
+  customCss: `
+    .swagger-ui .topbar { display: none }
+    .swagger-ui .info { margin-top: 20px }
+  `,
+  customSiteTitle: "Web Benchmarking API Documentation",
+}));
+
+app.get("/api/docs.json", (_req, res) => {
+  res.json(openApiSpec);
 });
 
 (async () => {
