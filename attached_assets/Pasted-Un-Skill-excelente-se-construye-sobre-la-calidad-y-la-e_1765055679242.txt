@@ -1,0 +1,31 @@
+Un Skill excelente se construye sobre la calidad y la estructura de su información. Para un contexto de marketing digital, la información debe cubrir:
+
+1. La Base de Conocimiento Estructural
+Esta información dota al Skill de la capacidad analítica y la comprensión profunda del mercado.
+
+Marco Teórico Central: Documentos que definen modelos de marketing (ej. Funnel AIDA, Flywheel Model, 4 P's del Marketing, modelos de atribución).
+Terminología y Métricas (Glosario): Definiciones precisas de KPI, acrónimos y métricas (ej. CPC, CPA, ROAS, LTV, CTR). Esto asegura que el Skill hable el idioma exacto de la industria.
+Datos de Benchmarking (Estándares): Rangos de rendimiento aceptables por industria y región (ej. Tasas de conversión promedio en e-commerce, engagement rate en redes sociales).
+2. Contenido de Aplicación Práctica y Casos
+El Skill debe saber cómo aplicar la teoría. Aquí es donde se carga la experiencia.
+
+Guías de Implementación Paso a Paso: Procedimientos detallados para tareas específicas (ej. "Cómo configurar una campaña de Retargeting en Google Ads", "Proceso de optimización SEO on-page").
+Plantillas y Estructuras: Ejemplos de Briefs creativos, estructuras de Planes de Marketing, formatos de Informes de Resultados y templates de email marketing.
+Casos de Estudio Detallados: Documentos que muestren el problema, la estrategia aplicada, las acciones específicas y los resultados obtenidos en diferentes industrias. Esto permite al Skill generar soluciones basadas en la experiencia.
+3. Información Contextual y de Plataforma
+Esto asegura que el Skill esté actualizado y sea relevante para el contexto operativo de Satma y sus clientes.
+
+Tendencias Recientes: Información sobre las últimas actualizaciones de plataformas (ej. Cambios en el algoritmo de Meta, nuevas funciones de Google AI).
+Datos Regionales (México): Información específica de consumo, regulaciones de publicidad local (si aplica), y plataformas populares en el mercado mexicano.
+Información de Herramientas: Si el Skill interactúa con herramientas externas (como las que tiene este asistente para generar documentos o gráficos), debe tener instrucciones claras sobre cómo y cuándo usar esas herramientas.
+4. Directrices de Tono y Formato (El Estilo)
+Esta capa define cómo el Skill debe interactuar para ser percibido como un experto confiable.
+
+Tono de Voz: Instrucciones para mantener un tono profesional, claro y orientado a la acción, evitando ambigüedades.
+Estructura de Respuesta: La directriz para usar listas, negritas y encabezados para facilitar la lectura y la aplicación de las recomendaciones.
+Pasos Sugeridos para Satma
+Si Satma planea crear un Skill especializado en Claude, les sugiero los siguientes pasos:
+
+Definir el Nicho Estricto: En lugar de un "Asesor de Marketing General", enfóquense en algo como "Experto en Performance Marketing para el Sector Financiero". La especialización reduce el volumen de datos de entrenamiento y aumenta la precisión.
+Recolección de Documentos: Invertir tiempo en estructurar y subir la documentación interna de Satma (manuales de procesos, guías de onboarding de clientes, checklists de campañas) como la Base de Conocimiento Estático.
+Probar y Ajustar: Realizar pruebas rigurosas para asegurar que el Skill no solo recite la información, sino que la aplique de forma creativa y contextualizada a las necesidades de los clientes.

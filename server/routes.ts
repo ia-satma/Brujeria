@@ -708,5 +708,106 @@ export async function registerRoutes(
     }
   });
 
+  // ============================================================================
+  // EVOLUTION SERVICE API
+  // ============================================================================
+
+  app.get("/api/evolution/stats", async (req, res) => {
+    try {
+      const { getEvolutionService } = await import("./evolution-service");
+      const evolutionService = getEvolutionService();
+      res.json(evolutionService.getAllPerformanceStats());
+    } catch (error) {
+      console.error("Evolution stats error:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
+  app.get("/api/evolution/proposals", async (req, res) => {
+    try {
+      const { getEvolutionService } = await import("./evolution-service");
+      const evolutionService = getEvolutionService();
+      res.json(evolutionService.getPendingProposals());
+    } catch (error) {
+      console.error("Evolution proposals error:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
+  app.get("/api/evolution/summary", async (req, res) => {
+    try {
+      const { getEvolutionService } = await import("./evolution-service");
+      const evolutionService = getEvolutionService();
+      res.json(evolutionService.getEvolutionSummary());
+    } catch (error) {
+      console.error("Evolution summary error:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
+  app.post("/api/evolution/save", async (req, res) => {
+    try {
+      const { getEvolutionService } = await import("./evolution-service");
+      const evolutionService = getEvolutionService();
+      const result = await evolutionService.saveToCloud();
+      res.json(result);
+    } catch (error) {
+      console.error("Evolution save error:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
+  app.post("/api/evolution/load", async (req, res) => {
+    try {
+      const { getEvolutionService } = await import("./evolution-service");
+      const evolutionService = getEvolutionService();
+      const result = await evolutionService.loadFromCloud();
+      res.json(result);
+    } catch (error) {
+      console.error("Evolution load error:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
+  app.post("/api/evolution/proposals/:id/status", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { status } = req.body;
+      
+      if (status !== 'approved' && status !== 'rejected') {
+        return res.status(400).json({
+          success: false,
+          error: "Status must be 'approved' or 'rejected'",
+        });
+      }
+      
+      const { getEvolutionService } = await import("./evolution-service");
+      const evolutionService = getEvolutionService();
+      const success = evolutionService.updateProposalStatus(id, status);
+      res.json({ success });
+    } catch (error) {
+      console.error("Evolution proposal status update error:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
   return httpServer;
 }

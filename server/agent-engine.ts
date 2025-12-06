@@ -8,6 +8,9 @@ import {
   type RAGContext
 } from "./agent-knowledge";
 import { extractPatternsAfterAnalysis } from "./autonomy-engine";
+import { getAgentConfigRegistry, type RegisteredAgentName } from "./config/agent-config-registry";
+import { performMetacognition, type MetacognitionResult } from "./metacognition-service";
+import { getEvolutionService } from "./evolution-service";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY!,
@@ -16,6 +19,21 @@ const openai = new OpenAI({
 
 const knowledgeService = getAgentKnowledgeService();
 const ragService = getCrossAgentRAGService();
+const configRegistry = getAgentConfigRegistry();
+
+console.log(`[AgentEngine] Loaded config registry with ${configRegistry.getAllAgentNames().length} agents`);
+
+function getSubagentPromptFromRegistry(
+  agentName: RegisteredAgentName,
+  subagentId: string
+): string {
+  const tools = configRegistry.getSubagentPrompts(agentName);
+  const tool = tools.find(t => t.id === subagentId);
+  if (!tool) {
+    throw new Error(`Subagent ${subagentId} not found for ${agentName}`);
+  }
+  return tool.subagentPrompt;
+}
 
 // ============================================================================
 // INTERFACES
@@ -65,6 +83,7 @@ export interface AnalysisSection {
   weaknesses: string[];
   score: number;
   subagent_results: SubAgentResult[];
+  metacognition?: MetacognitionResult;
 }
 
 export interface SiteAnalysis {
@@ -554,259 +573,6 @@ export async function extractExternalDomains(
 }
 
 // ============================================================================
-// SUBAGENT PROMPTS - VISUAL AESTHETICS AGENT (VAA)
-// ============================================================================
-
-const COLOR_PALETTE_ANALYZER_PROMPT = `You are COLOR_PALETTE_ANALYZER, a hyperspecialized AI focused ONLY on color analysis.
-
-Analyze the website's color scheme based on the HTML/CSS content provided.
-
-Evaluate:
-- Primary, secondary, and accent colors used
-- Color contrast ratios (accessibility)
-- Brand color consistency throughout the site
-- Emotional tone conveyed by the palette (corporate, playful, luxury, etc.)
-
-Be critical: most sites score 5-7. Only exceptional color work gets 8+.
-
-Return ONLY valid JSON:
-{
-  "finding": "One sentence primary finding about the color palette",
-  "score": 7,
-  "details": ["Specific detail 1", "Specific detail 2", "Specific detail 3"]
-}`;
-
-const TYPO_READABILITY_CHECKER_PROMPT = `You are TYPO_READABILITY_CHECKER, a hyperspecialized AI focused ONLY on typography analysis.
-
-Analyze the website's typography based on the HTML content provided.
-
-Evaluate:
-- Font families used (serif, sans-serif, display)
-- Heading hierarchy (H1-H6 proper usage)
-- Text readability (line height, spacing, contrast)
-- Typography consistency and professionalism
-
-Be critical: most sites score 5-7. Only exceptional typography gets 8+.
-
-Return ONLY valid JSON:
-{
-  "finding": "One sentence primary finding about typography",
-  "score": 6,
-  "details": ["Specific detail 1", "Specific detail 2", "Specific detail 3"]
-}`;
-
-const DESIGN_TREND_EVALUATOR_PROMPT = `You are DESIGN_TREND_EVALUATOR, a hyperspecialized AI focused ONLY on design modernity and trends.
-
-Analyze the website's visual design trends based on the content provided.
-
-Evaluate:
-- Design modernity (current vs outdated patterns)
-- Use of whitespace and visual balance
-- Image quality and relevance (inferred from alt tags, image count)
-- Overall aesthetic quality and professionalism
-- Alignment with current web design best practices
-
-Be critical: most sites score 5-7. Only truly modern designs get 8+.
-
-Return ONLY valid JSON:
-{
-  "finding": "One sentence primary finding about design trends",
-  "score": 7,
-  "details": ["Specific detail 1", "Specific detail 2", "Specific detail 3"]
-}`;
-
-// ============================================================================
-// SUBAGENT PROMPTS - UX NAVIGATION AGENT (UNA)
-// ============================================================================
-
-const INFORMATION_ARCHITECTURE_MAPPER_PROMPT = `You are INFORMATION_ARCHITECTURE_MAPPER, a hyperspecialized AI focused ONLY on site structure analysis.
-
-Analyze the website's information architecture based on the navigation and links provided.
-
-Evaluate:
-- Menu structure and organization
-- Navigation depth (how many clicks to reach content)
-- Content categorization logic
-- Sitemap clarity and discoverability
-
-Be critical: most sites score 5-7. Only exceptional IA gets 8+.
-
-Return ONLY valid JSON:
-{
-  "finding": "One sentence primary finding about information architecture",
-  "score": 6,
-  "details": ["Specific detail 1", "Specific detail 2", "Specific detail 3"]
-}`;
-
-const CTA_EFFECTIVENESS_SCORER_PROMPT = `You are CTA_EFFECTIVENESS_SCORER, a hyperspecialized AI focused ONLY on call-to-action analysis.
-
-Analyze the website's CTAs based on the content provided.
-
-Evaluate:
-- CTA visibility and prominence
-- CTA clarity and persuasiveness
-- Strategic placement of CTAs
-- Alignment with business objectives
-- Button/link design effectiveness
-
-Be critical: most sites score 5-7. Only exceptional CTA strategy gets 8+.
-
-Return ONLY valid JSON:
-{
-  "finding": "One sentence primary finding about CTA effectiveness",
-  "score": 5,
-  "details": ["Specific detail 1", "Specific detail 2", "Specific detail 3"]
-}`;
-
-const RESPONSIVE_DESIGN_INFERRER_PROMPT = `You are RESPONSIVE_DESIGN_INFERRER, a hyperspecialized AI focused ONLY on mobile optimization analysis.
-
-Analyze the website's responsive design based on the HTML structure provided.
-
-Evaluate:
-- Viewport meta tag presence and configuration
-- Media query usage (inferred from CSS patterns)
-- Mobile-friendly navigation patterns
-- Touch-friendly element sizing
-- Responsive image handling
-
-Be critical: most sites score 5-7. Only truly mobile-optimized sites get 8+.
-
-Return ONLY valid JSON:
-{
-  "finding": "One sentence primary finding about responsive design",
-  "score": 6,
-  "details": ["Specific detail 1", "Specific detail 2", "Specific detail 3"]
-}`;
-
-// ============================================================================
-// SUBAGENT PROMPTS - CONTENT STORYTELLING AGENT (CSA)
-// ============================================================================
-
-const BRAND_VOICE_VALIDATOR_PROMPT = `You are BRAND_VOICE_VALIDATOR, a hyperspecialized AI focused ONLY on brand voice and messaging analysis.
-
-Analyze the website's brand voice based on the content provided.
-
-Evaluate:
-- Tone consistency (formal, casual, professional, innovative)
-- Value proposition clarity
-- Messaging coherence across sections
-- Brand personality expression
-- Emotional connection with target audience
-
-Be critical: most sites score 5-7. Only exceptional brand voice gets 8+.
-
-Return ONLY valid JSON:
-{
-  "finding": "One sentence primary finding about brand voice",
-  "score": 7,
-  "details": ["Specific detail 1", "Specific detail 2", "Specific detail 3"]
-}`;
-
-const THOUGHT_LEADERSHIP_SCRUTINIZER_PROMPT = `You are THOUGHT_LEADERSHIP_SCRUTINIZER, a hyperspecialized AI focused ONLY on thought leadership content analysis.
-
-Analyze the website's thought leadership signals based on the content provided.
-
-Evaluate:
-- Quality and depth of insights/publications
-- Expertise demonstration
-- Industry authority signals
-- Content relevance to target audience (C-Suite, professionals)
-- Unique perspectives and original thinking
-
-Be critical: most sites score 5-7. Only true thought leaders get 8+.
-
-Return ONLY valid JSON:
-{
-  "finding": "One sentence primary finding about thought leadership",
-  "score": 6,
-  "details": ["Specific detail 1", "Specific detail 2", "Specific detail 3"]
-}`;
-
-const CREDIBILITY_EVIDENCE_COLLECTOR_PROMPT = `You are CREDIBILITY_EVIDENCE_COLLECTOR, a hyperspecialized AI focused ONLY on trust signals and social proof.
-
-Analyze the website's credibility signals based on the content provided.
-
-Evaluate:
-- Social proof (testimonials, case studies, client logos)
-- Awards and recognitions displayed
-- Industry rankings and certifications
-- Professional credentials
-- Trust-building elements (guarantees, policies)
-
-Be critical: most sites score 5-7. Only excellent credibility display gets 8+.
-
-Return ONLY valid JSON:
-{
-  "finding": "One sentence primary finding about credibility evidence",
-  "score": 7,
-  "details": ["Specific detail 1", "Specific detail 2", "Specific detail 3"]
-}`;
-
-// ============================================================================
-// SUBAGENT PROMPTS - TECHNICAL PERFORMANCE AGENT (TPA)
-// ============================================================================
-
-const PAGE_SPEED_SCORER_PROMPT = `You are PAGE_SPEED_SCORER, a hyperspecialized AI focused ONLY on performance analysis.
-
-Analyze the website's performance signals based on the HTML structure provided.
-
-Evaluate:
-- Resource loading patterns (lazy loading, defer, async)
-- Image optimization signals
-- Script and stylesheet management
-- Critical rendering path optimization
-- Perceived performance factors
-
-Be critical: most sites score 5-7. Only highly optimized sites get 8+.
-
-Return ONLY valid JSON:
-{
-  "finding": "One sentence primary finding about page speed",
-  "score": 5,
-  "details": ["Specific detail 1", "Specific detail 2", "Specific detail 3"]
-}`;
-
-const SEO_METADATA_INSPECTOR_PROMPT = `You are SEO_METADATA_INSPECTOR, a hyperspecialized AI focused ONLY on SEO metadata analysis.
-
-Analyze the website's SEO signals based on the metadata provided.
-
-Evaluate:
-- Title tag optimization (length, keywords, uniqueness)
-- Meta description quality and persuasiveness
-- Heading hierarchy (H1-H6) proper usage
-- Schema.org implementation
-- URL structure and friendliness
-
-Be critical: most sites score 5-7. Only excellent SEO gets 8+.
-
-Return ONLY valid JSON:
-{
-  "finding": "One sentence primary finding about SEO metadata",
-  "score": 6,
-  "details": ["Specific detail 1", "Specific detail 2", "Specific detail 3"]
-}`;
-
-const CONTENT_MARKUP_VALIDATOR_PROMPT = `You are CONTENT_MARKUP_VALIDATOR, a hyperspecialized AI focused ONLY on HTML structure and semantic markup.
-
-Analyze the website's markup quality based on the HTML structure provided.
-
-Evaluate:
-- Semantic HTML usage (article, section, nav, header, footer)
-- Accessibility attributes (alt tags, ARIA labels)
-- Heading hierarchy correctness
-- Structured data implementation
-- Clean and maintainable markup
-
-Be critical: most sites score 5-7. Only excellent markup gets 8+.
-
-Return ONLY valid JSON:
-{
-  "finding": "One sentence primary finding about content markup",
-  "score": 6,
-  "details": ["Specific detail 1", "Specific detail 2", "Specific detail 3"]
-}`;
-
-// ============================================================================
 // LLM COUNCIL PERSONA PROMPTS
 // ============================================================================
 
@@ -1185,9 +951,9 @@ async function runVisualAestheticsAgent(content: SiteContent, log?: LogCallback)
   const context = buildContext(content) + knowledgeContext;
   
   const [colorResult, typoResult, trendResult] = await Promise.all([
-    runSubagent('Color_Palette_Analyzer', COLOR_PALETTE_ANALYZER_PROMPT, context, log),
-    runSubagent('Typo_Readability_Checker', TYPO_READABILITY_CHECKER_PROMPT, context, log),
-    runSubagent('Design_Trend_Evaluator', DESIGN_TREND_EVALUATOR_PROMPT, context, log),
+    runSubagent('Color_Palette_Analyzer', getSubagentPromptFromRegistry("Visual_Aesthetics_Agent", "color_palette_analyzer"), context, log),
+    runSubagent('Typo_Readability_Checker', getSubagentPromptFromRegistry("Visual_Aesthetics_Agent", "typo_readability_checker"), context, log),
+    runSubagent('Design_Trend_Evaluator', getSubagentPromptFromRegistry("Visual_Aesthetics_Agent", "design_trend_evaluator"), context, log),
   ]);
 
   const aggregated = aggregateSubagentResults([colorResult, typoResult, trendResult]);
@@ -1197,7 +963,34 @@ async function runVisualAestheticsAgent(content: SiteContent, log?: LogCallback)
     subagent_results: [colorResult, typoResult, trendResult],
   };
   
+  const metacognition = performMetacognition(
+    "Visual_Aesthetics_Agent" as RegisteredAgentName,
+    analysisResult,
+    [colorResult, typoResult, trendResult],
+    { htmlLength: content.html.length, pagesScraped: content.pagesScraped, hasMetadata: !!content.metaDescription }
+  );
+  analysisResult.metacognition = metacognition;
+  log?.(`  [Visual_Aesthetics_Agent] Confidence: ${metacognition.confidence.overallConfidence.toFixed(2)}`);
+  
   await saveAgentAnalysisResult(AGENT_NAMES.VISUAL_AESTHETICS_AGENT, content.url, analysisResult, log);
+  
+  try {
+    const evolutionService = getEvolutionService();
+    evolutionService.recordLearningEvent({
+      agentName: "Visual_Aesthetics_Agent",
+      eventType: 'analysis_complete',
+      details: {
+        url: content.url,
+        score: analysisResult.score,
+        confidence: analysisResult.metacognition?.confidence.overallConfidence
+      }
+    });
+    if (analysisResult.metacognition) {
+      evolutionService.updatePerformanceStats("Visual_Aesthetics_Agent", analysisResult, analysisResult.metacognition);
+    }
+  } catch (error) {
+    console.error('[Evolution] Visual_Aesthetics_Agent tracking failed:', error);
+  }
   
   log?.(`[Visual_Aesthetics_Agent] COMPLETED - Score: ${aggregated.score}/10`);
   
@@ -1221,9 +1014,9 @@ async function runUXNavigationAgent(content: SiteContent, log?: LogCallback): Pr
   const context = buildContext(content) + knowledgeContext;
   
   const [iaResult, ctaResult, responsiveResult] = await Promise.all([
-    runSubagent('Information_Architecture_Mapper', INFORMATION_ARCHITECTURE_MAPPER_PROMPT, context, log),
-    runSubagent('CTA_Effectiveness_Scorer', CTA_EFFECTIVENESS_SCORER_PROMPT, context, log),
-    runSubagent('Responsive_Design_Inferrer', RESPONSIVE_DESIGN_INFERRER_PROMPT, context, log),
+    runSubagent('Information_Architecture_Mapper', getSubagentPromptFromRegistry("UX_Navigation_Agent", "information_architecture_mapper"), context, log),
+    runSubagent('CTA_Effectiveness_Scorer', getSubagentPromptFromRegistry("UX_Navigation_Agent", "cta_effectiveness_scorer"), context, log),
+    runSubagent('Responsive_Design_Inferrer', getSubagentPromptFromRegistry("UX_Navigation_Agent", "responsive_design_inferrer"), context, log),
   ]);
 
   const aggregated = aggregateSubagentResults([iaResult, ctaResult, responsiveResult]);
@@ -1233,7 +1026,34 @@ async function runUXNavigationAgent(content: SiteContent, log?: LogCallback): Pr
     subagent_results: [iaResult, ctaResult, responsiveResult],
   };
   
+  const metacognition = performMetacognition(
+    "UX_Navigation_Agent" as RegisteredAgentName,
+    analysisResult,
+    [iaResult, ctaResult, responsiveResult],
+    { htmlLength: content.html.length, pagesScraped: content.pagesScraped, hasMetadata: !!content.metaDescription }
+  );
+  analysisResult.metacognition = metacognition;
+  log?.(`  [UX_Navigation_Agent] Confidence: ${metacognition.confidence.overallConfidence.toFixed(2)}`);
+  
   await saveAgentAnalysisResult(AGENT_NAMES.UX_NAVIGATION_AGENT, content.url, analysisResult, log);
+  
+  try {
+    const evolutionService = getEvolutionService();
+    evolutionService.recordLearningEvent({
+      agentName: "UX_Navigation_Agent",
+      eventType: 'analysis_complete',
+      details: {
+        url: content.url,
+        score: analysisResult.score,
+        confidence: analysisResult.metacognition?.confidence.overallConfidence
+      }
+    });
+    if (analysisResult.metacognition) {
+      evolutionService.updatePerformanceStats("UX_Navigation_Agent", analysisResult, analysisResult.metacognition);
+    }
+  } catch (error) {
+    console.error('[Evolution] UX_Navigation_Agent tracking failed:', error);
+  }
   
   log?.(`[UX_Navigation_Agent] COMPLETED - Score: ${aggregated.score}/10`);
   
@@ -1257,9 +1077,9 @@ async function runContentStorytellingAgent(content: SiteContent, log?: LogCallba
   const context = buildContext(content) + knowledgeContext;
   
   const [voiceResult, thoughtResult, credibilityResult] = await Promise.all([
-    runSubagent('Brand_Voice_Validator', BRAND_VOICE_VALIDATOR_PROMPT, context, log),
-    runSubagent('Thought_Leadership_Scrutinizer', THOUGHT_LEADERSHIP_SCRUTINIZER_PROMPT, context, log),
-    runSubagent('Credibility_Evidence_Collector', CREDIBILITY_EVIDENCE_COLLECTOR_PROMPT, context, log),
+    runSubagent('Brand_Voice_Validator', getSubagentPromptFromRegistry("Content_Storytelling_Agent", "brand_voice_validator"), context, log),
+    runSubagent('Thought_Leadership_Scrutinizer', getSubagentPromptFromRegistry("Content_Storytelling_Agent", "thought_leadership_scrutinizer"), context, log),
+    runSubagent('Credibility_Evidence_Collector', getSubagentPromptFromRegistry("Content_Storytelling_Agent", "credibility_evidence_collector"), context, log),
   ]);
 
   const aggregated = aggregateSubagentResults([voiceResult, thoughtResult, credibilityResult]);
@@ -1269,7 +1089,34 @@ async function runContentStorytellingAgent(content: SiteContent, log?: LogCallba
     subagent_results: [voiceResult, thoughtResult, credibilityResult],
   };
   
+  const metacognition = performMetacognition(
+    "Content_Storytelling_Agent" as RegisteredAgentName,
+    analysisResult,
+    [voiceResult, thoughtResult, credibilityResult],
+    { htmlLength: content.html.length, pagesScraped: content.pagesScraped, hasMetadata: !!content.metaDescription }
+  );
+  analysisResult.metacognition = metacognition;
+  log?.(`  [Content_Storytelling_Agent] Confidence: ${metacognition.confidence.overallConfidence.toFixed(2)}`);
+  
   await saveAgentAnalysisResult(AGENT_NAMES.CONTENT_STORYTELLING_AGENT, content.url, analysisResult, log);
+  
+  try {
+    const evolutionService = getEvolutionService();
+    evolutionService.recordLearningEvent({
+      agentName: "Content_Storytelling_Agent",
+      eventType: 'analysis_complete',
+      details: {
+        url: content.url,
+        score: analysisResult.score,
+        confidence: analysisResult.metacognition?.confidence.overallConfidence
+      }
+    });
+    if (analysisResult.metacognition) {
+      evolutionService.updatePerformanceStats("Content_Storytelling_Agent", analysisResult, analysisResult.metacognition);
+    }
+  } catch (error) {
+    console.error('[Evolution] Content_Storytelling_Agent tracking failed:', error);
+  }
   
   log?.(`[Content_Storytelling_Agent] COMPLETED - Score: ${aggregated.score}/10`);
   
@@ -1293,9 +1140,9 @@ async function runTechnicalPerformanceAgent(content: SiteContent, log?: LogCallb
   const context = buildContext(content) + knowledgeContext;
   
   const [speedResult, seoResult, markupResult] = await Promise.all([
-    runSubagent('Page_Speed_Scorer', PAGE_SPEED_SCORER_PROMPT, context, log),
-    runSubagent('SEO_Metadata_Inspector', SEO_METADATA_INSPECTOR_PROMPT, context, log),
-    runSubagent('Content_Markup_Validator', CONTENT_MARKUP_VALIDATOR_PROMPT, context, log),
+    runSubagent('Page_Speed_Scorer', getSubagentPromptFromRegistry("Technical_Performance_Agent", "page_speed_scorer"), context, log),
+    runSubagent('SEO_Metadata_Inspector', getSubagentPromptFromRegistry("Technical_Performance_Agent", "seo_metadata_inspector"), context, log),
+    runSubagent('Content_Markup_Validator', getSubagentPromptFromRegistry("Technical_Performance_Agent", "content_markup_validator"), context, log),
   ]);
 
   const aggregated = aggregateSubagentResults([speedResult, seoResult, markupResult]);
@@ -1305,7 +1152,34 @@ async function runTechnicalPerformanceAgent(content: SiteContent, log?: LogCallb
     subagent_results: [speedResult, seoResult, markupResult],
   };
   
+  const metacognition = performMetacognition(
+    "Technical_Performance_Agent" as RegisteredAgentName,
+    analysisResult,
+    [speedResult, seoResult, markupResult],
+    { htmlLength: content.html.length, pagesScraped: content.pagesScraped, hasMetadata: !!content.metaDescription }
+  );
+  analysisResult.metacognition = metacognition;
+  log?.(`  [Technical_Performance_Agent] Confidence: ${metacognition.confidence.overallConfidence.toFixed(2)}`);
+  
   await saveAgentAnalysisResult(AGENT_NAMES.TECHNICAL_PERFORMANCE_AGENT, content.url, analysisResult, log);
+  
+  try {
+    const evolutionService = getEvolutionService();
+    evolutionService.recordLearningEvent({
+      agentName: "Technical_Performance_Agent",
+      eventType: 'analysis_complete',
+      details: {
+        url: content.url,
+        score: analysisResult.score,
+        confidence: analysisResult.metacognition?.confidence.overallConfidence
+      }
+    });
+    if (analysisResult.metacognition) {
+      evolutionService.updatePerformanceStats("Technical_Performance_Agent", analysisResult, analysisResult.metacognition);
+    }
+  } catch (error) {
+    console.error('[Evolution] Technical_Performance_Agent tracking failed:', error);
+  }
   
   log?.(`[Technical_Performance_Agent] COMPLETED - Score: ${aggregated.score}/10`);
   
