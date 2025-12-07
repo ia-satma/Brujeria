@@ -30,6 +30,36 @@ interface ReportViewProps {
 }
 
 export function ReportView({ report, reportId }: ReportViewProps) {
+  const downloadFile = async (type: 'pdf' | 'json' | 'instructions') => {
+    try {
+      const endpoint = `/api/reports/download/${type}`;
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(report),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Download failed');
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = type === 'pdf' ? 'benchmarking-report.pdf' 
+                 : type === 'json' ? 'benchmarking-report.json' 
+                 : 'replit-instructions.md';
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Download error:', error);
+      alert('Error al descargar el archivo. Por favor intenta de nuevo.');
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -58,29 +88,21 @@ export function ReportView({ report, reportId }: ReportViewProps) {
           </div>
         </div>
         
-        {/* Download Buttons - Always visible on mobile */}
-        {reportId && (
-          <div className="flex flex-wrap gap-2 w-full">
-            <Button asChild className="shadow-lg flex-1 min-w-[100px] sm:flex-none" data-testid="button-download-pdf">
-              <a href={`/api/reports/${reportId}/pdf`} download>
-                <Download className="w-4 h-4 mr-2" />
-                PDF
-              </a>
-            </Button>
-            <Button asChild variant="outline" className="flex-1 min-w-[100px] sm:flex-none" data-testid="button-download-json">
-              <a href={`/api/reports/${reportId}/json`} download>
-                <FileJson className="w-4 h-4 mr-2" />
-                JSON
-              </a>
-            </Button>
-            <Button asChild variant="secondary" className="bg-accent/20 hover:bg-accent/30 text-accent-foreground flex-1 min-w-[140px] sm:flex-none" data-testid="button-download-instructions">
-              <a href={`/api/reports/${reportId}/instructions`} download>
-                <FileCode className="w-4 h-4 mr-2" />
-                Instrucciones Replit
-              </a>
-            </Button>
-          </div>
-        )}
+        {/* Download Buttons - Always visible */}
+        <div className="flex flex-wrap gap-2 w-full">
+          <Button onClick={() => downloadFile('pdf')} className="shadow-lg flex-1 min-w-[100px] sm:flex-none" data-testid="button-download-pdf">
+            <Download className="w-4 h-4 mr-2" />
+            PDF
+          </Button>
+          <Button onClick={() => downloadFile('json')} variant="outline" className="flex-1 min-w-[100px] sm:flex-none" data-testid="button-download-json">
+            <FileJson className="w-4 h-4 mr-2" />
+            JSON
+          </Button>
+          <Button onClick={() => downloadFile('instructions')} variant="secondary" className="bg-accent/20 hover:bg-accent/30 text-accent-foreground flex-1 min-w-[140px] sm:flex-none" data-testid="button-download-instructions">
+            <FileCode className="w-4 h-4 mr-2" />
+            Instrucciones Replit
+          </Button>
+        </div>
       </div>
 
       {/* Main Content Tabs */}

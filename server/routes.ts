@@ -643,6 +643,77 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/reports/download/pdf", async (req, res) => {
+    try {
+      const reportData = req.body as Report;
+      
+      if (!reportData || !reportData.report_title) {
+        return res.status(400).json({ error: "Invalid report data" });
+      }
+      
+      const doc = generateReportPDF(reportData);
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="benchmarking-report.pdf"`);
+      
+      doc.pipe(res);
+      doc.end();
+    } catch (error) {
+      console.error("PDF generation error:", error);
+      res.status(500).json({ error: "Failed to generate PDF" });
+    }
+  });
+
+  app.post("/api/reports/download/json", async (req, res) => {
+    try {
+      const reportData = req.body as Report;
+      
+      if (!reportData || !reportData.report_title) {
+        return res.status(400).json({ error: "Invalid report data" });
+      }
+      
+      const sanitizedReport = {
+        report_title: reportData.report_title,
+        report_metadata: reportData.report_metadata,
+        executive_summary: reportData.executive_summary,
+        client_website_analysis: reportData.client_website_analysis,
+        competitor_analyses: reportData.competitor_analyses,
+        comparative_analysis: reportData.comparative_analysis,
+        recommendations: reportData.recommendations,
+        councilResult: reportData.councilResult,
+        prioritized_tasks: reportData.prioritized_tasks,
+        execution_order: reportData.execution_order,
+        completion_criteria: reportData.completion_criteria,
+      };
+      
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Disposition', `attachment; filename="benchmarking-report.json"`);
+      res.json(sanitizedReport);
+    } catch (error) {
+      console.error("JSON export error:", error);
+      res.status(500).json({ error: "Failed to export JSON" });
+    }
+  });
+
+  app.post("/api/reports/download/instructions", async (req, res) => {
+    try {
+      const reportData = req.body as Report;
+      
+      if (!reportData || !reportData.report_title) {
+        return res.status(400).json({ error: "Invalid report data" });
+      }
+      
+      const instructions = generateReplitInstructions(reportData);
+      
+      res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="replit-instructions.md"`);
+      res.send(instructions);
+    } catch (error) {
+      console.error("Instructions export error:", error);
+      res.status(500).json({ error: "Failed to generate instructions" });
+    }
+  });
+
   app.get("/api/pcloud/test", async (req, res) => {
     try {
       const pcloud = getPCloudClient();
