@@ -2008,5 +2008,153 @@ export async function registerRoutes(
     }
   });
 
+  // ============================================
+  // LEARNING OBJECTIVES ENDPOINTS
+  // ============================================
+
+  const addObjectiveSchema = z.object({
+    title: z.string().min(1),
+    description: z.string().min(1),
+    targetDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    priority: z.enum(["critical", "high", "medium", "low"]).optional(),
+  });
+
+  app.post("/api/organization/employees/:agentName/learning/objectives", async (req, res) => {
+    try {
+      const { agentName } = req.params;
+      const objective = addObjectiveSchema.parse(req.body);
+      const orgService = getOrganizationalStructureService();
+      const result = await orgService.addLearningObjective(agentName, objective);
+      res.json({ success: true, ...result });
+    } catch (error) {
+      console.error("Add learning objective error:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ success: false, error: "Invalid request", details: error.errors });
+      }
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Error desconocido" });
+    }
+  });
+
+  const updateObjectiveSchema = z.object({
+    progress: z.number().min(0).max(100).optional(),
+    status: z.enum(["not_started", "in_progress", "completed", "deferred"]).optional(),
+    evidence: z.array(z.string()).optional(),
+  });
+
+  app.patch("/api/organization/employees/:agentName/learning/objectives/:objectiveId", async (req, res) => {
+    try {
+      const { agentName, objectiveId } = req.params;
+      const updates = updateObjectiveSchema.parse(req.body);
+      const orgService = getOrganizationalStructureService();
+      await orgService.updateLearningObjectiveProgress(agentName, objectiveId, updates);
+      res.json({ success: true, message: "Objetivo actualizado" });
+    } catch (error) {
+      console.error("Update learning objective error:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ success: false, error: "Invalid request", details: error.errors });
+      }
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Error desconocido" });
+    }
+  });
+
+  const completeObjectiveSchema = z.object({
+    evidence: z.array(z.string()).min(1),
+  });
+
+  app.post("/api/organization/employees/:agentName/learning/objectives/:objectiveId/complete", async (req, res) => {
+    try {
+      const { agentName, objectiveId } = req.params;
+      const { evidence } = completeObjectiveSchema.parse(req.body);
+      const orgService = getOrganizationalStructureService();
+      await orgService.completeLearningObjective(agentName, objectiveId, evidence);
+      res.json({ success: true, message: "Objetivo completado" });
+    } catch (error) {
+      console.error("Complete learning objective error:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ success: false, error: "Invalid request", details: error.errors });
+      }
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Error desconocido" });
+    }
+  });
+
+  const addBacklogSchema = z.object({
+    topic: z.string().min(1),
+    priority: z.enum(["critical", "high", "medium", "low"]),
+    source: z.string().min(1),
+    estimatedEffort: z.string().min(1),
+    rationale: z.string().min(1),
+  });
+
+  app.post("/api/organization/employees/:agentName/learning/backlog", async (req, res) => {
+    try {
+      const { agentName } = req.params;
+      const topic = addBacklogSchema.parse(req.body);
+      const orgService = getOrganizationalStructureService();
+      await orgService.addToLearningBacklog(agentName, topic);
+      res.json({ success: true, message: "Tema agregado al backlog" });
+    } catch (error) {
+      console.error("Add to learning backlog error:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ success: false, error: "Invalid request", details: error.errors });
+      }
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Error desconocido" });
+    }
+  });
+
+  const recordLearningSchema = z.object({
+    topic: z.string().min(1),
+    impact: z.string().min(1),
+    appliedIn: z.array(z.string()),
+  });
+
+  app.post("/api/organization/employees/:agentName/learning/completed", async (req, res) => {
+    try {
+      const { agentName } = req.params;
+      const learning = recordLearningSchema.parse(req.body);
+      const orgService = getOrganizationalStructureService();
+      await orgService.recordLearning(agentName, learning);
+      res.json({ success: true, message: "Aprendizaje registrado" });
+    } catch (error) {
+      console.error("Record learning error:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ success: false, error: "Invalid request", details: error.errors });
+      }
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Error desconocido" });
+    }
+  });
+
+  app.get("/api/organization/employees/:agentName/learning/progress", async (req, res) => {
+    try {
+      const { agentName } = req.params;
+      const orgService = getOrganizationalStructureService();
+      const progress = await orgService.getLearningProgress(agentName);
+      res.json({ success: true, ...progress });
+    } catch (error) {
+      console.error("Get learning progress error:", error);
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Error desconocido" });
+    }
+  });
+
+  const promoteBacklogSchema = z.object({
+    topic: z.string().min(1),
+    targetDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  });
+
+  app.post("/api/organization/employees/:agentName/learning/backlog/promote", async (req, res) => {
+    try {
+      const { agentName } = req.params;
+      const { topic, targetDate } = promoteBacklogSchema.parse(req.body);
+      const orgService = getOrganizationalStructureService();
+      const result = await orgService.promoteBacklogToObjective(agentName, topic, targetDate);
+      res.json({ success: true, ...result, message: "Tema promovido a objetivo" });
+    } catch (error) {
+      console.error("Promote backlog to objective error:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ success: false, error: "Invalid request", details: error.errors });
+      }
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Error desconocido" });
+    }
+  });
+
   return httpServer;
 }

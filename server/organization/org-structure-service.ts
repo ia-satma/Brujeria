@@ -890,6 +890,7 @@ ${role.kpis.map(k => `| ${k.metric} | ${k.target} | ${k.unit} | ${k.frequency} |
           title: "Familiarización con el dominio",
           description: `Dominar las ${role.responsibilities.length} responsabilidades core del puesto`,
           targetDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          priority: "critical" as const,
           status: "in_progress",
           progress: 0,
           evidence: []
@@ -899,6 +900,7 @@ ${role.kpis.map(k => `| ${k.metric} | ${k.target} | ${k.unit} | ${k.frequency} |
           title: "Integración con el equipo",
           description: `Establecer colaboración efectiva con ${role.collaborationWith.join(", ")}`,
           targetDate: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          priority: "high" as const,
           status: "not_started",
           progress: 0,
           evidence: []
@@ -913,6 +915,307 @@ ${role.kpis.map(k => `| ${k.metric} | ${k.target} | ${k.unit} | ${k.frequency} |
       })),
       completedLearnings: []
     };
+  }
+
+  async addLearningObjective(
+    agentName: string,
+    objective: {
+      title: string;
+      description: string;
+      targetDate: string;
+      priority?: "critical" | "high" | "medium" | "low";
+    }
+  ): Promise<{ objectiveId: string }> {
+    const agenda = await this.getLearningAgenda(agentName);
+    
+    if (!agenda) {
+      throw new Error(`No se encontró agenda de aprendizaje para el empleado: ${agentName}`);
+    }
+
+    const objectiveId = `obj_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+    
+    const newObjective = {
+      objectiveId,
+      title: objective.title,
+      description: objective.description,
+      targetDate: objective.targetDate,
+      priority: objective.priority || "medium" as const,
+      status: "not_started" as const,
+      progress: 0,
+      evidence: [],
+    };
+
+    agenda.objectives.push(newObjective);
+    
+    const validated = LearningAgendaSchema.parse(agenda);
+    const folders = getEmployeeFolders(agentName);
+    await this.pcloud.uploadJsonFile(folders.learning, "learning-agenda.json", validated);
+
+    console.log(`Objetivo de aprendizaje agregado para ${agentName}: ${objective.title}`);
+
+    return { objectiveId };
+  }
+
+  async updateLearningObjectiveProgress(
+    agentName: string,
+    objectiveId: string,
+    updates: {
+      progress?: number;
+      status?: "not_started" | "in_progress" | "completed" | "deferred";
+      evidence?: string[];
+    }
+  ): Promise<void> {
+    const agenda = await this.getLearningAgenda(agentName);
+    
+    if (!agenda) {
+      throw new Error(`No se encontró agenda de aprendizaje para el empleado: ${agentName}`);
+    }
+
+    const objectiveIndex = agenda.objectives.findIndex(o => o.objectiveId === objectiveId);
+    
+    if (objectiveIndex === -1) {
+      throw new Error(`Objetivo no encontrado: ${objectiveId}`);
+    }
+
+    const objective = agenda.objectives[objectiveIndex];
+    
+    if (updates.progress !== undefined) {
+      objective.progress = Math.max(0, Math.min(100, updates.progress));
+    }
+    
+    if (updates.status !== undefined) {
+      objective.status = updates.status;
+    }
+    
+    if (updates.evidence !== undefined) {
+      objective.evidence = [...objective.evidence, ...updates.evidence];
+    }
+
+    if (objective.progress >= 100 && objective.status !== "completed") {
+      objective.status = "completed";
+    }
+
+    agenda.objectives[objectiveIndex] = objective;
+    
+    const validated = LearningAgendaSchema.parse(agenda);
+    const folders = getEmployeeFolders(agentName);
+    await this.pcloud.uploadJsonFile(folders.learning, "learning-agenda.json", validated);
+
+    console.log(`Objetivo ${objectiveId} actualizado para ${agentName}: progreso=${objective.progress}%, status=${objective.status}`);
+  }
+
+  async completeLearningObjective(
+    agentName: string,
+    objectiveId: string,
+    evidence: string[]
+  ): Promise<void> {
+    await this.updateLearningObjectiveProgress(agentName, objectiveId, {
+      progress: 100,
+      status: "completed",
+      evidence,
+    });
+
+    console.log(`Objetivo de aprendizaje completado para ${agentName}: ${objectiveId}`);
+  }
+
+  async addToLearningBacklog(
+    agentName: string,
+    topic: {
+      topic: string;
+      priority: "critical" | "high" | "medium" | "low";
+      source: string;
+      estimatedEffort: string;
+      rationale: string;
+    }
+  ): Promise<void> {
+    const agenda = await this.getLearningAgenda(agentName);
+    
+    if (!agenda) {
+      throw new Error(`No se encontró agenda de aprendizaje para el empleado: ${agentName}`);
+    }
+
+    const existingTopic = agenda.learningBacklog.find(
+      t => t.topic.toLowerCase() === topic.topic.toLowerCase()
+    );
+    
+    if (existingTopic) {
+      existingTopic.priority = topic.priority;
+      existingTopic.rationale = topic.rationale;
+    } else {
+      agenda.learningBacklog.push(topic);
+    }
+
+    agenda.learningBacklog.sort((a, b) => {
+      const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+      return priorityOrder[a.priority] - priorityOrder[b.priority];
+    });
+
+    const validated = LearningAgendaSchema.parse(agenda);
+    const folders = getEmployeeFolders(agentName);
+    await this.pcloud.uploadJsonFile(folders.learning, "learning-agenda.json", validated);
+
+    console.log(`Tema agregado al backlog de ${agentName}: ${topic.topic} (${topic.priority})`);
+  }
+
+  async recordLearning(
+    agentName: string,
+    learning: {
+      topic: string;
+      impact: string;
+      appliedIn: string[];
+    }
+  ): Promise<void> {
+    const agenda = await this.getLearningAgenda(agentName);
+    
+    if (!agenda) {
+      throw new Error(`No se encontró agenda de aprendizaje para el empleado: ${agentName}`);
+    }
+
+    const completedLearning = {
+      topic: learning.topic,
+      completedDate: getCurrentDate(),
+      impact: learning.impact,
+      appliedIn: learning.appliedIn,
+    };
+
+    agenda.completedLearnings.push(completedLearning);
+
+    const backlogIndex = agenda.learningBacklog.findIndex(
+      t => t.topic.toLowerCase() === learning.topic.toLowerCase()
+    );
+    
+    if (backlogIndex !== -1) {
+      agenda.learningBacklog.splice(backlogIndex, 1);
+    }
+
+    const validated = LearningAgendaSchema.parse(agenda);
+    const folders = getEmployeeFolders(agentName);
+    await this.pcloud.uploadJsonFile(folders.learning, "learning-agenda.json", validated);
+
+    const metrics = await this.getPerformanceMetrics(agentName);
+    if (metrics) {
+      const currentVelocity = metrics.metrics.learningVelocity;
+      await this.updatePerformanceMetrics(agentName, {
+        metrics: {
+          ...metrics.metrics,
+          learningVelocity: currentVelocity + 1,
+        },
+      });
+    }
+
+    console.log(`Aprendizaje registrado para ${agentName}: ${learning.topic}`);
+  }
+
+  async getLearningProgress(agentName: string): Promise<{
+    employeeId: string;
+    quarter: string;
+    summary: {
+      totalObjectives: number;
+      completedObjectives: number;
+      inProgressObjectives: number;
+      overallProgress: number;
+      backlogSize: number;
+      completedLearnings: number;
+    };
+    objectives: Array<{
+      objectiveId: string;
+      title: string;
+      status: string;
+      progress: number;
+      targetDate: string;
+      isOverdue: boolean;
+    }>;
+    recentLearnings: Array<{
+      topic: string;
+      completedDate: string;
+      impact: string;
+    }>;
+    priorityBacklog: Array<{
+      topic: string;
+      priority: string;
+    }>;
+  }> {
+    const agenda = await this.getLearningAgenda(agentName);
+    
+    if (!agenda) {
+      throw new Error(`No se encontró agenda de aprendizaje para el empleado: ${agentName}`);
+    }
+
+    const today = new Date();
+    const completedObjectives = agenda.objectives.filter(o => o.status === "completed").length;
+    const inProgressObjectives = agenda.objectives.filter(o => o.status === "in_progress").length;
+    const totalProgress = agenda.objectives.length > 0
+      ? Math.round(agenda.objectives.reduce((sum, o) => sum + o.progress, 0) / agenda.objectives.length)
+      : 0;
+
+    return {
+      employeeId: agenda.employeeId,
+      quarter: agenda.quarter,
+      summary: {
+        totalObjectives: agenda.objectives.length,
+        completedObjectives,
+        inProgressObjectives,
+        overallProgress: totalProgress,
+        backlogSize: agenda.learningBacklog.length,
+        completedLearnings: agenda.completedLearnings.length,
+      },
+      objectives: agenda.objectives.map(o => ({
+        objectiveId: o.objectiveId,
+        title: o.title,
+        status: o.status,
+        progress: o.progress,
+        targetDate: o.targetDate,
+        isOverdue: new Date(o.targetDate) < today && o.status !== "completed",
+      })),
+      recentLearnings: agenda.completedLearnings.slice(-5).reverse().map(l => ({
+        topic: l.topic,
+        completedDate: l.completedDate,
+        impact: l.impact,
+      })),
+      priorityBacklog: agenda.learningBacklog.slice(0, 5).map(t => ({
+        topic: t.topic,
+        priority: t.priority,
+      })),
+    };
+  }
+
+  async promoteBacklogToObjective(
+    agentName: string,
+    topic: string,
+    targetDate: string
+  ): Promise<{ objectiveId: string }> {
+    const agenda = await this.getLearningAgenda(agentName);
+    
+    if (!agenda) {
+      throw new Error(`No se encontró agenda de aprendizaje para el empleado: ${agentName}`);
+    }
+
+    const backlogIndex = agenda.learningBacklog.findIndex(
+      t => t.topic.toLowerCase() === topic.toLowerCase()
+    );
+    
+    if (backlogIndex === -1) {
+      throw new Error(`Tema no encontrado en backlog: ${topic}`);
+    }
+
+    const backlogItem = agenda.learningBacklog[backlogIndex];
+
+    const result = await this.addLearningObjective(agentName, {
+      title: backlogItem.topic,
+      description: backlogItem.rationale,
+      targetDate,
+      priority: backlogItem.priority,
+    });
+
+    agenda.learningBacklog.splice(backlogIndex, 1);
+    
+    const validated = LearningAgendaSchema.parse(agenda);
+    const folders = getEmployeeFolders(agentName);
+    await this.pcloud.uploadJsonFile(folders.learning, "learning-agenda.json", validated);
+
+    console.log(`Tema promovido de backlog a objetivo para ${agentName}: ${topic}`);
+
+    return result;
   }
 }
 

@@ -100,6 +100,7 @@ export const LearningAgendaSchema = z.object({
     title: z.string(),
     description: z.string(),
     targetDate: z.string(),
+    priority: z.enum(["critical", "high", "medium", "low"]).default("medium"),
     status: z.enum(["not_started", "in_progress", "completed", "deferred"]),
     progress: z.number(),
     evidence: z.array(z.string()),
