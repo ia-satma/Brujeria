@@ -1,6 +1,7 @@
 import { 
   type User, 
   type InsertUser, 
+  users,
   type AnalysisReport, 
   type InsertAnalysisReport, 
   analysisReports,
@@ -330,16 +331,18 @@ export class MemStorage implements IStorage {
 
 export class DatabaseStorage implements IStorage {
   async getUser(id: string): Promise<User | undefined> {
-    return undefined;
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    return undefined;
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    return { ...insertUser, id };
+    const [user] = await db.insert(users).values(insertUser).returning();
+    return user;
   }
 
   async saveReport(insertReport: InsertAnalysisReport): Promise<AnalysisReport> {
