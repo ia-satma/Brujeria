@@ -446,7 +446,7 @@ export async function registerRoutes(
           finalRanking: allWeaknesses.map((w, i) => ({
             issue: w.issue,
             priority: (i < 2 ? 'P0' : i < 4 ? 'P1' : 'P2') as 'P0' | 'P1' | 'P2',
-            votes: 3 - i,
+            votes: Math.max(1, 5 - i),
             severity: i < 2 ? 'CRITICAL' : i < 4 ? 'HIGH' : 'MEDIUM',
           })),
         };
