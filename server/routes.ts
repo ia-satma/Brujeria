@@ -45,6 +45,124 @@ const extractDomainsSchema = z.object({
   portfolioUrl: z.string().url(),
 });
 
+function safeString(value: unknown): string {
+  if (value === undefined || value === null) return '';
+  return String(value);
+}
+
+function generateReplitInstructions(report: Report): string {
+  const clientName = report.client_website_analysis.name.replace(' (Client)', '');
+  const date = new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' });
+  
+  let md = `# Instrucciones para Replit Agent\n`;
+  md += `## Mejoras del Sitio Web: ${clientName}\n`;
+  md += `**Generado:** ${date}\n`;
+  md += `**Puntuación Actual:** ${report.client_website_analysis.overall_score}/10\n\n`;
+  
+  md += `---\n\n`;
+  md += `## Contexto del Análisis\n\n`;
+  md += `Este documento contiene instrucciones específicas para implementar mejoras en el sitio web del cliente basadas en un análisis comparativo con ${report.competitor_analyses.length} competidor(es).\n\n`;
+  
+  if (report.executive_summary) {
+    const summary = report.executive_summary;
+    md += `### Resumen Ejecutivo\n`;
+    if (summary.overall_score !== undefined) md += `- **Puntuación General:** ${summary.overall_score}/10\n`;
+    if (summary.vs_competitors) md += `- **vs Competidores:** ${summary.vs_competitors}\n`;
+    if (summary.critical_issues !== undefined) md += `- **Problemas Críticos:** ${summary.critical_issues}\n`;
+    if (summary.estimated_conversion_loss) md += `- **Pérdida Estimada de Conversión:** ${summary.estimated_conversion_loss}\n`;
+    md += `\n`;
+  }
+  
+  md += `---\n\n`;
+  md += `## Tareas Priorizadas\n\n`;
+  md += `> Copia estas tareas directamente en Replit Agent para implementarlas.\n\n`;
+  
+  const tasks = report.prioritized_tasks || [];
+  const criticalTasks = tasks.filter(t => t.priority === 'P0-CRITICAL');
+  const highTasks = tasks.filter(t => t.priority === 'P1-HIGH');
+  const mediumTasks = tasks.filter(t => t.priority === 'P2-MEDIUM');
+  
+  const renderTask = (task: any) => {
+    const title = safeString(task.title) || 'Sin título';
+    const description = safeString(task.description) || 'Sin descripción';
+    const impact = safeString(task.expected_impact);
+    const effort = safeString(task.estimated_effort);
+    const source = safeString(task.agent_source);
+    
+    let taskMd = `#### ${title}\n`;
+    taskMd += `**Descripción:** ${description}\n`;
+    if (impact) taskMd += `**Impacto Esperado:** ${impact}\n`;
+    if (effort) taskMd += `**Esfuerzo Estimado:** ${effort}\n`;
+    if (source) taskMd += `**Fuente:** ${source}\n`;
+    taskMd += `\n**Instrucción para Replit:**\n`;
+    taskMd += `\`\`\`\n${title}: ${description}\n\`\`\`\n\n`;
+    return taskMd;
+  };
+  
+  if (criticalTasks.length > 0) {
+    md += `### 🔴 P0 - CRÍTICO (Implementar Primero)\n\n`;
+    for (const task of criticalTasks) {
+      md += renderTask(task);
+    }
+  }
+  
+  if (highTasks.length > 0) {
+    md += `### 🟠 P1 - ALTA PRIORIDAD\n\n`;
+    for (const task of highTasks) {
+      md += renderTask(task);
+    }
+  }
+  
+  if (mediumTasks.length > 0) {
+    md += `### 🟡 P2 - MEDIA PRIORIDAD\n\n`;
+    for (const task of mediumTasks) {
+      md += renderTask(task);
+    }
+  }
+  
+  if (report.execution_order && report.execution_order.length > 0) {
+    md += `---\n\n`;
+    md += `## Orden de Ejecución Recomendado\n\n`;
+    report.execution_order.forEach((step, i) => {
+      const safeStep = safeString(step);
+      if (safeStep) md += `${i + 1}. ${safeStep}\n`;
+    });
+    md += `\n`;
+  }
+  
+  if (report.completion_criteria) {
+    const criteria = report.completion_criteria;
+    const hasPhase0 = criteria.phase_0 && criteria.phase_0.trim();
+    const hasPhase1 = criteria.phase_1 && criteria.phase_1.trim();
+    const hasPhase2 = criteria.phase_2 && criteria.phase_2.trim();
+    
+    if (hasPhase0 || hasPhase1 || hasPhase2) {
+      md += `---\n\n`;
+      md += `## Criterios de Finalización\n\n`;
+      if (hasPhase0) md += `### Fase 0 (Crítico)\n${criteria.phase_0}\n\n`;
+      if (hasPhase1) md += `### Fase 1 (Alta Prioridad)\n${criteria.phase_1}\n\n`;
+      if (hasPhase2) md += `### Fase 2 (Media Prioridad)\n${criteria.phase_2}\n\n`;
+    }
+  }
+  
+  if (report.councilResult?.chairmanVerdict) {
+    md += `---\n\n`;
+    md += `## Veredicto del Consejo de Análisis\n\n`;
+    md += `${report.councilResult.chairmanVerdict}\n\n`;
+  }
+  
+  md += `---\n\n`;
+  md += `## Cómo Usar Este Documento\n\n`;
+  md += `1. Abre Replit Agent en tu proyecto\n`;
+  md += `2. Copia las instrucciones de cada tarea (bloques de código)\n`;
+  md += `3. Pega directamente en el chat de Replit Agent\n`;
+  md += `4. Sigue el orden de ejecución recomendado\n`;
+  md += `5. Verifica cada fase con los criterios de finalización\n\n`;
+  md += `*Generado por SATMA Web Analyst - https://satma.mx*\n`;
+  
+  return md;
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
@@ -366,6 +484,70 @@ export async function registerRoutes(
     } catch (error) {
       console.error("PDF generation error:", error);
       res.status(500).json({ error: "Failed to generate PDF" });
+    }
+  });
+
+  app.get("/api/reports/:id/json", async (req, res) => {
+    try {
+      const reportId = parseInt(req.params.id);
+      
+      if (isNaN(reportId)) {
+        return res.status(400).json({ error: "Invalid report ID" });
+      }
+      
+      const savedReport = await storage.getReport(reportId);
+      
+      if (!savedReport) {
+        return res.status(404).json({ error: "Report not found" });
+      }
+      
+      const reportData = savedReport.reportData as Report;
+      const sanitizedReport = {
+        report_title: reportData.report_title,
+        report_metadata: reportData.report_metadata,
+        executive_summary: reportData.executive_summary,
+        client_website_analysis: reportData.client_website_analysis,
+        competitor_analyses: reportData.competitor_analyses,
+        comparative_analysis: reportData.comparative_analysis,
+        recommendations: reportData.recommendations,
+        councilResult: reportData.councilResult,
+        prioritized_tasks: reportData.prioritized_tasks,
+        execution_order: reportData.execution_order,
+        completion_criteria: reportData.completion_criteria,
+      };
+      
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Disposition', `attachment; filename="report-${reportId}.json"`);
+      res.json(sanitizedReport);
+    } catch (error) {
+      console.error("JSON export error:", error);
+      res.status(500).json({ error: "Failed to export JSON" });
+    }
+  });
+
+  app.get("/api/reports/:id/instructions", async (req, res) => {
+    try {
+      const reportId = parseInt(req.params.id);
+      
+      if (isNaN(reportId)) {
+        return res.status(400).json({ error: "Invalid report ID" });
+      }
+      
+      const savedReport = await storage.getReport(reportId);
+      
+      if (!savedReport) {
+        return res.status(404).json({ error: "Report not found" });
+      }
+      
+      const reportData = savedReport.reportData as Report;
+      const instructions = generateReplitInstructions(reportData);
+      
+      res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="replit-instructions-${reportId}.md"`);
+      res.send(instructions);
+    } catch (error) {
+      console.error("Instructions export error:", error);
+      res.status(500).json({ error: "Failed to generate instructions" });
     }
   });
 
