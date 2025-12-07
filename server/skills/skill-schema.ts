@@ -339,57 +339,254 @@ export function createEmptySkill(
 }
 
 export function generateSkillPrompt(skill: Skill): string {
-  const { knowledgeBase, practicalContent, toneGuidelines, specialization } = skill;
+  const { knowledgeBase, practicalContent, contextualInfo, toneGuidelines, specialization } = skill;
   
   let prompt = `Eres ${skill.name}, un experto hiperespecializado en ${specialization.subDomain} dentro del dominio ${specialization.domain}.
 
 Tu nivel de expertise es: ${specialization.expertiseLevel}
 ${specialization.industryFocus.length > 0 ? `Industrias de enfoque: ${specialization.industryFocus.join(", ")}` : ""}
 
-=== BASE DE CONOCIMIENTO ===
+══════════════════════════════════════════════════════════════
+                    BASE DE CONOCIMIENTO
+══════════════════════════════════════════════════════════════
 `;
 
   if (knowledgeBase.theoreticalFrameworks.length > 0) {
-    prompt += `\nMARCOS TEÓRICOS:\n`;
-    for (const framework of knowledgeBase.theoreticalFrameworks.slice(0, 3)) {
-      prompt += `- ${framework.name}: ${framework.description}\n`;
-      prompt += `  Principios: ${framework.principles.slice(0, 3).join(", ")}\n`;
-    }
-  }
-
-  if (knowledgeBase.benchmarks.length > 0) {
-    prompt += `\nBENCHMARKS DE REFERENCIA:\n`;
-    for (const benchmark of knowledgeBase.benchmarks.slice(0, 5)) {
-      if (benchmark.goodRange) {
-        prompt += `- ${benchmark.metric} (${benchmark.industry || 'general'}): Bueno ${benchmark.goodRange.min}-${benchmark.goodRange.max}${benchmark.excellentThreshold ? `, Excelente >${benchmark.excellentThreshold}` : ''}\n`;
-      } else if (benchmark.goodThreshold) {
-        prompt += `- ${benchmark.metric} (${benchmark.industry || 'general'}): Bueno >${benchmark.goodThreshold}${benchmark.excellentThreshold ? `, Excelente >${benchmark.excellentThreshold}` : ''}\n`;
-      } else {
-        prompt += `- ${benchmark.metric} (${benchmark.industry || 'general'})\n`;
+    prompt += `\n📚 MARCOS TEÓRICOS:\n`;
+    for (const framework of knowledgeBase.theoreticalFrameworks.slice(0, 5)) {
+      prompt += `• ${framework.name}: ${framework.description}\n`;
+      if (framework.principles.length > 0) {
+        prompt += `  Principios: ${framework.principles.slice(0, 5).join("; ")}\n`;
+      }
+      if (framework.applications.length > 0) {
+        prompt += `  Aplicaciones: ${framework.applications.slice(0, 3).join("; ")}\n`;
       }
     }
   }
 
-  if (practicalContent.caseStudies.length > 0) {
-    prompt += `\n=== CASOS DE ESTUDIO ===\n`;
-    for (const caseStudy of practicalContent.caseStudies.slice(0, 2)) {
-      prompt += `- ${caseStudy.title} (${caseStudy.industry}): ${caseStudy.results.summary}\n`;
+  if (knowledgeBase.glossary.length > 0) {
+    prompt += `\n📖 GLOSARIO TÉCNICO:\n`;
+    for (const term of knowledgeBase.glossary.slice(0, 10)) {
+      prompt += `• ${term.term} [${term.category}]: ${term.definition}\n`;
     }
   }
 
-  prompt += `\n=== ESTILO DE COMUNICACIÓN ===
+  if (knowledgeBase.benchmarks.length > 0) {
+    prompt += `\n📊 BENCHMARKS DE REFERENCIA:\n`;
+    for (const benchmark of knowledgeBase.benchmarks.slice(0, 8)) {
+      let benchmarkLine = `• ${benchmark.metric}`;
+      if (benchmark.industry) benchmarkLine += ` (${benchmark.industry})`;
+      if (benchmark.category) benchmarkLine += ` [${benchmark.category}]`;
+      benchmarkLine += `: `;
+      
+      if (benchmark.goodRange) {
+        benchmarkLine += `Bueno ${benchmark.goodRange.min}-${benchmark.goodRange.max}`;
+      } else if (benchmark.goodThreshold) {
+        benchmarkLine += `Bueno >${benchmark.goodThreshold}`;
+      }
+      if (benchmark.excellentThreshold) {
+        benchmarkLine += `, Excelente >${benchmark.excellentThreshold}`;
+      }
+      if (benchmark.poorThreshold) {
+        benchmarkLine += `, Malo <${benchmark.poorThreshold}`;
+      }
+      if (benchmark.source) {
+        benchmarkLine += ` (Fuente: ${benchmark.source})`;
+      }
+      prompt += benchmarkLine + '\n';
+    }
+  }
+
+  if (knowledgeBase.industryStandards.length > 0) {
+    prompt += `\n📋 ESTÁNDARES DE INDUSTRIA:\n`;
+    for (const standard of knowledgeBase.industryStandards.slice(0, 5)) {
+      const complianceEmoji = standard.compliance === 'required' ? '🔴' : 
+                              standard.compliance === 'recommended' ? '🟡' : '🟢';
+      prompt += `${complianceEmoji} ${standard.standard} (${standard.authority}): ${standard.description} [${standard.compliance.toUpperCase()}]\n`;
+    }
+  }
+
+  if (practicalContent.checklists.length > 0) {
+    prompt += `\n══════════════════════════════════════════════════════════════
+                    CHECKLISTS DE EVALUACIÓN
+══════════════════════════════════════════════════════════════\n`;
+    for (const checklist of practicalContent.checklists.slice(0, 3)) {
+      prompt += `\n✅ ${checklist.name} (${checklist.context}):\n`;
+      for (const item of checklist.items.slice(0, 8)) {
+        const priorityIcon = item.priority === 'critical' ? '🔴' :
+                            item.priority === 'high' ? '🟠' :
+                            item.priority === 'medium' ? '🟡' : '🟢';
+        prompt += `   ${priorityIcon} ${item.item}\n`;
+        if (item.rationale) {
+          prompt += `      → ${item.rationale}\n`;
+        }
+      }
+    }
+  }
+
+  if (practicalContent.implementationGuides.length > 0) {
+    prompt += `\n══════════════════════════════════════════════════════════════
+                    GUÍAS DE IMPLEMENTACIÓN
+══════════════════════════════════════════════════════════════\n`;
+    for (const guide of practicalContent.implementationGuides.slice(0, 2)) {
+      prompt += `\n📝 ${guide.title} [${guide.difficulty}]\n`;
+      prompt += `   Objetivo: ${guide.objective}\n`;
+      if (guide.estimatedTime) {
+        prompt += `   Tiempo estimado: ${guide.estimatedTime}\n`;
+      }
+      prompt += `   Pasos:\n`;
+      for (const step of guide.steps.slice(0, 5)) {
+        prompt += `   ${step.step}. ${step.action}: ${step.details}\n`;
+        if (step.validation) {
+          prompt += `      ✓ Validación: ${step.validation}\n`;
+        }
+      }
+    }
+  }
+
+  if (practicalContent.templates.length > 0) {
+    prompt += `\n══════════════════════════════════════════════════════════════
+                    TEMPLATES Y PATRONES
+══════════════════════════════════════════════════════════════\n`;
+    for (const template of practicalContent.templates.slice(0, 3)) {
+      prompt += `\n📄 ${template.name} (${template.type})\n`;
+      prompt += `   Casos de uso: ${template.useCases.slice(0, 3).join(", ")}\n`;
+      prompt += `   Ejemplo: ${template.example.slice(0, 200)}${template.example.length > 200 ? '...' : ''}\n`;
+    }
+  }
+
+  if (practicalContent.caseStudies.length > 0) {
+    prompt += `\n══════════════════════════════════════════════════════════════
+                    CASOS DE ESTUDIO
+══════════════════════════════════════════════════════════════\n`;
+    for (const caseStudy of practicalContent.caseStudies.slice(0, 3)) {
+      prompt += `\n🔍 ${caseStudy.title} (${caseStudy.industry})\n`;
+      prompt += `   Problema: ${caseStudy.problem}\n`;
+      prompt += `   Estrategia: ${caseStudy.strategy}\n`;
+      prompt += `   Resultado: ${caseStudy.results.summary}\n`;
+      if (caseStudy.lessonsLearned.length > 0) {
+        prompt += `   Lecciones aprendidas:\n`;
+        for (const lesson of caseStudy.lessonsLearned.slice(0, 3)) {
+          prompt += `   • ${lesson}\n`;
+        }
+      }
+      if (caseStudy.applicablePatterns.length > 0) {
+        prompt += `   Patrones aplicables: ${caseStudy.applicablePatterns.slice(0, 4).join(", ")}\n`;
+      }
+    }
+  }
+
+  if (contextualInfo.trends.length > 0) {
+    prompt += `\n══════════════════════════════════════════════════════════════
+                    TENDENCIAS ACTUALES
+══════════════════════════════════════════════════════════════\n`;
+    for (const trend of contextualInfo.trends.slice(0, 5)) {
+      const maturityIcon = trend.maturityLevel === 'emerging' ? '🌱' :
+                          trend.maturityLevel === 'growing' ? '📈' :
+                          trend.maturityLevel === 'mature' ? '🏛️' : '📉';
+      prompt += `${maturityIcon} ${trend.trend} [${trend.maturityLevel}] (Relevancia: ${trend.relevanceScore}/10)\n`;
+      prompt += `   ${trend.description}\n`;
+      if (trend.industries.length > 0) {
+        prompt += `   Industrias: ${trend.industries.slice(0, 4).join(", ")}\n`;
+      }
+    }
+  }
+
+  if (contextualInfo.toolIntegrations.length > 0) {
+    prompt += `\n══════════════════════════════════════════════════════════════
+                    HERRAMIENTAS Y RECURSOS
+══════════════════════════════════════════════════════════════\n`;
+    for (const tool of contextualInfo.toolIntegrations.slice(0, 4)) {
+      prompt += `\n🔧 ${tool.toolName}: ${tool.purpose}\n`;
+      prompt += `   Capacidades: ${tool.capabilities.slice(0, 4).join(", ")}\n`;
+      if (tool.limitations.length > 0) {
+        prompt += `   Limitaciones: ${tool.limitations.slice(0, 2).join(", ")}\n`;
+      }
+      prompt += `   Uso: ${tool.usageInstructions}\n`;
+    }
+  }
+
+  if (contextualInfo.competitorIntelligence.length > 0) {
+    prompt += `\n══════════════════════════════════════════════════════════════
+                    INTELIGENCIA COMPETITIVA
+══════════════════════════════════════════════════════════════\n`;
+    for (const competitor of contextualInfo.competitorIntelligence.slice(0, 3)) {
+      prompt += `\n🎯 ${competitor.competitor}\n`;
+      if (competitor.strengths.length > 0) {
+        prompt += `   ✓ Fortalezas: ${competitor.strengths.slice(0, 3).join("; ")}\n`;
+      }
+      if (competitor.weaknesses.length > 0) {
+        prompt += `   ✗ Debilidades: ${competitor.weaknesses.slice(0, 3).join("; ")}\n`;
+      }
+      if (competitor.strategies.length > 0) {
+        prompt += `   ► Estrategias: ${competitor.strategies.slice(0, 2).join("; ")}\n`;
+      }
+    }
+  }
+
+  prompt += `\n══════════════════════════════════════════════════════════════
+                    METODOLOGÍA DE ANÁLISIS
+══════════════════════════════════════════════════════════════
+
+Tu ENFOQUE de análisis debe ser:
+1. Evaluar usando los BENCHMARKS específicos de tu dominio
+2. Aplicar los MARCOS TEÓRICOS para estructurar el análisis
+3. Verificar contra los CHECKLISTS para no omitir aspectos críticos
+4. Considerar las TENDENCIAS actuales en tu evaluación
+5. Comparar con las mejores prácticas de los CASOS DE ESTUDIO
+6. Aplicar los ESTÁNDARES DE INDUSTRIA cuando corresponda
+
+Tu COMPORTAMIENTO debe ser:
+- Sé específico y cuantitativo cuando sea posible
+- Basa tus hallazgos en evidencia observable
+- Aplica tu conocimiento especializado en cada evaluación
+- Identifica tanto fortalezas como áreas de mejora
+- Proporciona recomendaciones accionables y priorizadas
+`;
+
+  prompt += `\n══════════════════════════════════════════════════════════════
+                    ESTILO DE COMUNICACIÓN
+══════════════════════════════════════════════════════════════
 Tono: ${toneGuidelines.voiceCharacteristics.tone}
 Personalidad: ${toneGuidelines.voiceCharacteristics.personality.join(", ")}
+Formalidad: ${toneGuidelines.voiceCharacteristics.formality}
 Complejidad: ${toneGuidelines.communicationStyle.maxComplexity}
+${toneGuidelines.communicationStyle.useTechnicalJargon ? 'Usar terminología técnica cuando sea apropiado' : 'Evitar jerga técnica innecesaria'}
+`;
+
+  if (toneGuidelines.responsePatterns.transitionPhrases.length > 0) {
+    prompt += `Frases de transición: ${toneGuidelines.responsePatterns.transitionPhrases.slice(0, 4).join(", ")}\n`;
+  }
+
+  if (toneGuidelines.prohibitedPatterns.length > 0) {
+    prompt += `\n⚠️ PATRONES PROHIBIDOS:\n`;
+    for (const prohibited of toneGuidelines.prohibitedPatterns.slice(0, 3)) {
+      prompt += `• Evitar: "${prohibited.pattern}" → Usar: "${prohibited.alternative}"\n`;
+    }
+  }
+
+  prompt += `
+══════════════════════════════════════════════════════════════
+                    FORMATO DE RESPUESTA
+══════════════════════════════════════════════════════════════
 
 Retorna SOLO JSON válido con tu análisis:
 {
-  "finding": "Hallazgo principal en una oración",
+  "finding": "Hallazgo principal basado en tu expertise especializada",
   "score": 7,
-  "details": ["Detalle 1", "Detalle 2", "Detalle 3"],
+  "details": [
+    "Detalle específico con evidencia",
+    "Otro hallazgo con métricas cuando aplique",
+    "Observación técnica relevante"
+  ],
   "confidence": 0.85,
-  "appliedKnowledge": ["framework o benchmark aplicado"],
-  "recommendations": ["Recomendación específica basada en tu expertise"]
+  "appliedKnowledge": [
+    "Framework/benchmark/estándar específico que aplicaste"
+  ],
+  "recommendations": [
+    "Recomendación accionable y priorizada basada en tu expertise"
+  ],
+  "methodology": "Descripción breve de cómo aplicaste tu metodología"
 }`;
 
   return prompt;

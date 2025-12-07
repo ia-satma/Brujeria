@@ -9,6 +9,7 @@ import {
 } from "./skill-schema";
 import { getPCloudClient, getAgentFolderPath } from "../pcloud-client";
 import { storage } from "../storage";
+import { SKILL_KNOWLEDGE_MAP } from "./default-skill-knowledge";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY!,
@@ -64,6 +65,17 @@ export class SubagentFactory {
     const id = `skill_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const skill = createEmptySkill(id, name, parentAgentId, domain, subDomain);
     
+    // Aplicar conocimiento predefinido si existe para este skill
+    const predefinedKnowledge = SKILL_KNOWLEDGE_MAP[name];
+    if (predefinedKnowledge) {
+      skill.knowledgeBase = predefinedKnowledge.knowledgeBase;
+      skill.practicalContent = predefinedKnowledge.practicalContent;
+      skill.contextualInfo = predefinedKnowledge.contextualInfo;
+      skill.toneGuidelines = predefinedKnowledge.toneGuidelines;
+      console.log(`[SubagentFactory] Applied predefined knowledge to skill: ${name}`);
+    }
+    
+    // Sobrescribir con conocimiento inicial si se proporciona
     if (initialKnowledge) {
       skill.knowledgeBase = {
         ...skill.knowledgeBase,
@@ -695,4 +707,85 @@ export async function initializeDefaultSkills(): Promise<{
   }
   
   return { skillsCreated, skillsExisting, subagentsCreated, subagentsExisting, errors };
+}
+
+export async function upgradeExistingSkillsWithKnowledge(): Promise<{
+  upgraded: number;
+  skipped: number;
+  errors: string[];
+}> {
+  const factory = getSubagentFactory();
+  await factory.initialize();
+  
+  let upgraded = 0;
+  let skipped = 0;
+  const errors: string[] = [];
+  
+  console.log("[SubagentFactory] Upgrading existing skills with predefined knowledge...");
+  
+  for (const [agentName] of Object.entries(DEFAULT_SKILLS_CONFIG)) {
+    try {
+      const existingSkills = await factory.listSkills(agentName);
+      
+      for (const skill of existingSkills) {
+        const predefinedKnowledge = SKILL_KNOWLEDGE_MAP[skill.name];
+        
+        if (!predefinedKnowledge) {
+          skipped++;
+          continue;
+        }
+        
+        const hasKnowledge = skill.knowledgeBase.theoreticalFrameworks.length > 0 ||
+                            skill.knowledgeBase.glossary.length > 0 ||
+                            skill.practicalContent.checklists.length > 0;
+        
+        if (hasKnowledge) {
+          console.log(`[SubagentFactory] Skill "${skill.name}" already has knowledge, skipping...`);
+          skipped++;
+          continue;
+        }
+        
+        try {
+          skill.knowledgeBase = predefinedKnowledge.knowledgeBase;
+          skill.practicalContent = predefinedKnowledge.practicalContent;
+          skill.contextualInfo = predefinedKnowledge.contextualInfo;
+          skill.toneGuidelines = predefinedKnowledge.toneGuidelines;
+          
+          const versionParts = skill.version.split('.');
+          versionParts[1] = String(parseInt(versionParts[1]) + 1);
+          versionParts[2] = '0';
+          skill.version = versionParts.join('.');
+          skill.updatedAt = new Date().toISOString();
+          
+          skill.evolutionHistory.push({
+            version: skill.version,
+            date: skill.updatedAt,
+            changes: ["Aplicado conocimiento predefinido completo"],
+            performanceImpact: 0.5,
+          });
+          
+          await factory.saveSkill(skill);
+          upgraded++;
+          console.log(`[SubagentFactory] ✓ Upgraded skill "${skill.name}" to v${skill.version}`);
+        } catch (saveError: any) {
+          const errMsg = `Failed to upgrade skill "${skill.name}": ${saveError.message}`;
+          errors.push(errMsg);
+          console.error(`[SubagentFactory] ✗ ${errMsg}`);
+        }
+      }
+    } catch (agentError: any) {
+      const errMsg = `Failed to process agent ${agentName}: ${agentError.message}`;
+      errors.push(errMsg);
+      console.error(`[SubagentFactory] ✗ ${errMsg}`);
+    }
+  }
+  
+  console.log(`[SubagentFactory] Upgrade complete:`);
+  console.log(`  - Upgraded: ${upgraded} skills`);
+  console.log(`  - Skipped: ${skipped} skills (already had knowledge or no predefined knowledge)`);
+  if (errors.length > 0) {
+    console.log(`  - Errors: ${errors.length}`);
+  }
+  
+  return { upgraded, skipped, errors };
 }
