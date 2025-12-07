@@ -36,6 +36,7 @@ import {
   getAutonomyStats,
   getAgentPerformanceReport,
 } from "./autonomy-engine";
+import { getOrganizationalStructureService } from "./organization/org-structure-service";
 
 const analyzeRequestSchema = z.object({
   clientUrl: z.string().url(),
@@ -1768,6 +1769,109 @@ export async function registerRoutes(
       res.status(500).json({
         success: false,
         error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
+  // ============================================
+  // ORGANIZATIONAL STRUCTURE ENDPOINTS
+  // ============================================
+
+  app.post("/api/organization/bootstrap", async (req, res) => {
+    try {
+      const orgService = getOrganizationalStructureService();
+      const result = await orgService.bootstrapAllEmployees();
+      
+      res.json({
+        success: true,
+        message: `Estructura organizacional inicializada. ${result.successful}/${result.total} empleados digitales bootstrapeados.`,
+        ...result,
+      });
+    } catch (error) {
+      console.error("Bootstrap organization error:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Error desconocido al inicializar organización",
+      });
+    }
+  });
+
+  app.get("/api/organization/summary", async (req, res) => {
+    try {
+      const orgService = getOrganizationalStructureService();
+      const summary = await orgService.getOrganizationSummary();
+      
+      res.json({
+        success: true,
+        ...summary,
+      });
+    } catch (error) {
+      console.error("Get organization summary error:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Error desconocido al obtener resumen",
+      });
+    }
+  });
+
+  app.get("/api/organization/employees/:agentName", async (req, res) => {
+    try {
+      const { agentName } = req.params;
+      const orgService = getOrganizationalStructureService();
+      
+      const profile = await orgService.getEmployeeProfile(agentName);
+      
+      if (!profile) {
+        return res.status(404).json({
+          success: false,
+          error: `No se encontró perfil para el agente: ${agentName}`,
+        });
+      }
+      
+      const performance = await orgService.getPerformanceMetrics(agentName);
+      const learning = await orgService.getLearningAgenda(agentName);
+      
+      res.json({
+        success: true,
+        profile,
+        performance,
+        learning,
+      });
+    } catch (error) {
+      console.error("Get employee profile error:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Error desconocido al obtener perfil",
+      });
+    }
+  });
+
+  app.get("/api/organization/employees", async (req, res) => {
+    try {
+      const orgService = getOrganizationalStructureService();
+      const summary = await orgService.getOrganizationSummary();
+      
+      const { ORGANIZATIONAL_STRUCTURE } = await import("./organization/org-architecture");
+      const employees = Object.entries(ORGANIZATIONAL_STRUCTURE).map(([agentName, role]) => ({
+        agentName,
+        roleName: role.roleName,
+        roleNameEs: role.roleNameEs,
+        department: role.department,
+        level: role.level,
+      }));
+      
+      res.json({
+        success: true,
+        totalEmployees: summary.totalEmployees,
+        employees,
+        byDepartment: summary.byDepartment,
+        byLevel: summary.byLevel,
+      });
+    } catch (error) {
+      console.error("List employees error:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Error desconocido al listar empleados",
       });
     }
   });
