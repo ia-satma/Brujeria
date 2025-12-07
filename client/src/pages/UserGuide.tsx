@@ -714,19 +714,19 @@ export default function UserGuide() {
 
         <Tabs defaultValue="platform" className="mb-12">
           <TabsList className="grid w-full grid-cols-4 mb-8 bg-[#2A3E61]/5" data-testid="tabs-guide-sections">
-            <TabsTrigger value="platform" className="gap-2 data-[state=active]:bg-[#2A3E61] data-[state=active]:text-white" data-testid="tab-platform">
+            <TabsTrigger value="platform" className="gap-2 min-h-[44px] data-[state=active]:bg-[#2A3E61] data-[state=active]:text-white" data-testid="tab-platform">
               <Bot className="w-4 h-4" />
               <span className="hidden sm:inline">Plataforma</span>
             </TabsTrigger>
-            <TabsTrigger value="agents" className="gap-2 data-[state=active]:bg-[#2A3E61] data-[state=active]:text-white" data-testid="tab-agents">
+            <TabsTrigger value="agents" className="gap-2 min-h-[44px] data-[state=active]:bg-[#2A3E61] data-[state=active]:text-white" data-testid="tab-agents">
               <Network className="w-4 h-4" />
               <span className="hidden sm:inline">Agentes</span>
             </TabsTrigger>
-            <TabsTrigger value="quickstart" className="gap-2 data-[state=active]:bg-[#2A3E61] data-[state=active]:text-white" data-testid="tab-quickstart">
+            <TabsTrigger value="quickstart" className="gap-2 min-h-[44px] data-[state=active]:bg-[#2A3E61] data-[state=active]:text-white" data-testid="tab-quickstart">
               <Play className="w-4 h-4" />
               <span className="hidden sm:inline">Tutorial</span>
             </TabsTrigger>
-            <TabsTrigger value="faq" className="gap-2 data-[state=active]:bg-[#2A3E61] data-[state=active]:text-white" data-testid="tab-faq">
+            <TabsTrigger value="faq" className="gap-2 min-h-[44px] data-[state=active]:bg-[#2A3E61] data-[state=active]:text-white" data-testid="tab-faq">
               <HelpCircle className="w-4 h-4" />
               <span className="hidden sm:inline">FAQ</span>
             </TabsTrigger>
