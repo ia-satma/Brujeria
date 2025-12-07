@@ -4,6 +4,7 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { openApiSpec } from "./openapi-spec";
+import { initializeDefaultSkills } from "./skills";
 
 const app = express();
 const httpServer = createServer(app);
@@ -105,8 +106,20 @@ app.get("/api/docs.json", (_req, res) => {
       host: "0.0.0.0",
       reusePort: true,
     },
-    () => {
+    async () => {
       log(`serving on port ${port}`);
+      
+      try {
+        const skillsResult = await initializeDefaultSkills();
+        if (skillsResult.created > 0) {
+          log(`Initialized ${skillsResult.created} default skills for agents`, "skills");
+        }
+        if (skillsResult.errors.length > 0) {
+          log(`Skills initialization had ${skillsResult.errors.length} errors`, "skills");
+        }
+      } catch (err: any) {
+        log(`Skills initialization failed: ${err.message}`, "skills");
+      }
     },
   );
 })();

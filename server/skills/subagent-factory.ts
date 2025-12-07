@@ -489,6 +489,94 @@ Retorna SOLO JSON válido:
   }
 }
 
+const DEFAULT_SKILLS_CONFIG: Record<string, Array<{
+  name: string;
+  domain: string;
+  subDomain: string;
+  description: string;
+}>> = {
+  Visual_Aesthetics_Agent: [
+    {
+      name: "Color Psychology",
+      domain: "visual_design",
+      subDomain: "color_analysis",
+      description: "Análisis del impacto psicológico y emocional de las paletas de colores"
+    },
+    {
+      name: "Typography Expertise",
+      domain: "visual_design", 
+      subDomain: "typography",
+      description: "Evaluación de tipografías, legibilidad y jerarquía visual"
+    },
+    {
+      name: "Visual Hierarchy",
+      domain: "visual_design",
+      subDomain: "layout_composition",
+      description: "Análisis de composición, whitespace y flujo visual"
+    }
+  ],
+  UX_Navigation_Agent: [
+    {
+      name: "User Flow Analysis",
+      domain: "user_experience",
+      subDomain: "navigation_patterns",
+      description: "Evaluación de flujos de usuario y arquitectura de información"
+    },
+    {
+      name: "Accessibility Expertise",
+      domain: "user_experience",
+      subDomain: "wcag_compliance",
+      description: "Análisis de accesibilidad y cumplimiento de estándares WCAG"
+    },
+    {
+      name: "Conversion Optimization",
+      domain: "user_experience",
+      subDomain: "cta_effectiveness",
+      description: "Evaluación de CTAs, formularios y puntos de conversión"
+    }
+  ],
+  Content_Storytelling_Agent: [
+    {
+      name: "Brand Voice Analysis",
+      domain: "content_strategy",
+      subDomain: "brand_messaging",
+      description: "Evaluación de consistencia de voz de marca y messaging"
+    },
+    {
+      name: "SEO Content Expertise",
+      domain: "content_strategy",
+      subDomain: "seo_optimization",
+      description: "Análisis de optimización de contenido para motores de búsqueda"
+    },
+    {
+      name: "Narrative Structure",
+      domain: "content_strategy",
+      subDomain: "storytelling",
+      description: "Evaluación de estructura narrativa y persuasión"
+    }
+  ],
+  Technical_Performance_Agent: [
+    {
+      name: "Performance Optimization",
+      domain: "technical",
+      subDomain: "page_speed",
+      description: "Análisis de velocidad de carga y optimización de rendimiento"
+    },
+    {
+      name: "SEO Technical Expertise",
+      domain: "technical",
+      subDomain: "seo_technical",
+      description: "Evaluación de aspectos técnicos de SEO y structured data"
+    },
+    {
+      name: "Code Quality Analysis",
+      domain: "technical",
+      subDomain: "markup_validation",
+      description: "Análisis de calidad de código HTML, accesibilidad técnica y best practices"
+    }
+  ]
+};
+
 let factoryInstance: SubagentFactory | null = null;
 
 export function getSubagentFactory(): SubagentFactory {
@@ -496,4 +584,52 @@ export function getSubagentFactory(): SubagentFactory {
     factoryInstance = new SubagentFactory();
   }
   return factoryInstance;
+}
+
+export async function initializeDefaultSkills(): Promise<{ created: number; existing: number; errors: string[] }> {
+  const factory = getSubagentFactory();
+  await factory.initialize();
+  
+  let created = 0;
+  let existing = 0;
+  const errors: string[] = [];
+  
+  console.log("[SubagentFactory] Checking default skills for all agents...");
+  
+  for (const [agentName, defaultSkills] of Object.entries(DEFAULT_SKILLS_CONFIG)) {
+    try {
+      const existingSkills = await factory.listSkills(agentName);
+      const existingSkillNames = new Set(existingSkills.map(s => s.name.toLowerCase()));
+      
+      for (const skillConfig of defaultSkills) {
+        if (existingSkillNames.has(skillConfig.name.toLowerCase())) {
+          existing++;
+          continue;
+        }
+        
+        try {
+          await factory.createSkill(
+            agentName,
+            skillConfig.name,
+            skillConfig.domain,
+            skillConfig.subDomain
+          );
+          created++;
+          console.log(`[SubagentFactory] ✓ Created skill "${skillConfig.name}" for ${agentName}`);
+        } catch (skillError: any) {
+          const errMsg = `Failed to create skill "${skillConfig.name}" for ${agentName}: ${skillError.message}`;
+          errors.push(errMsg);
+          console.error(`[SubagentFactory] ✗ ${errMsg}`);
+        }
+      }
+    } catch (agentError: any) {
+      const errMsg = `Failed to process agent ${agentName}: ${agentError.message}`;
+      errors.push(errMsg);
+      console.error(`[SubagentFactory] ✗ ${errMsg}`);
+    }
+  }
+  
+  console.log(`[SubagentFactory] Skills initialization complete: ${created} created, ${existing} already exist, ${errors.length} errors`);
+  
+  return { created, existing, errors };
 }
