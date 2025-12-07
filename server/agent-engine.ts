@@ -1511,6 +1511,24 @@ Return ONLY valid JSON in this format:
   "implementation_notes": ["Implementation detail 1", "Implementation detail 2"]
 }`;
 
+const OPENAI_TIMEOUT_MS = 60000;
+
+async function withTimeout<T>(promise: Promise<T>, ms: number, operation: string): Promise<T> {
+  let timeoutId: NodeJS.Timeout;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error(`${operation} timed out after ${ms}ms`)), ms);
+  });
+  
+  try {
+    const result = await Promise.race([promise, timeoutPromise]);
+    clearTimeout(timeoutId!);
+    return result;
+  } catch (error) {
+    clearTimeout(timeoutId!);
+    throw error;
+  }
+}
+
 export async function generateComparativeInsights(
   clientAnalysis: SiteAnalysis,
   competitorAnalyses: SiteAnalysis[],
@@ -1519,7 +1537,23 @@ export async function generateComparativeInsights(
   
   log?.(`[Comparative_Insights_Engine] Cross-referencing competitive data...`);
   
-  const analysisContext = `
+  const defaultResult = {
+    comparative_analysis: {
+      strengths_relative: [],
+      weaknesses_relative: [],
+      industry_best_practices: [],
+      emerging_trends: [],
+    },
+    recommendations: {
+      high_priority: [],
+      medium_priority: [],
+      innovative_opportunities: [],
+    },
+    implementation_notes: [],
+  };
+  
+  try {
+    const analysisContext = `
 CLIENT WEBSITE: ${clientAnalysis.name} (${clientAnalysis.url})
 Overall Score: ${clientAnalysis.overall_score}/10
 - Visual Design: ${clientAnalysis.visual_design.score}/10
@@ -1544,34 +1578,34 @@ ${i + 1}. ${comp.name} (${comp.url}) - Overall: ${comp.overall_score}/10
 
 Provide strategic insights comparing the client to competitors. Be specific about score gaps and opportunities.`;
 
-  const completion = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
-    messages: [
-      { role: "system", content: COMPARATIVE_PROMPT },
-      { role: "user", content: analysisContext }
-    ],
-    temperature: 0.8,
-    response_format: { type: "json_object" }
-  });
+    const completion = await withTimeout(
+      openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: COMPARATIVE_PROMPT },
+          { role: "user", content: analysisContext }
+        ],
+        temperature: 0.8,
+        response_format: { type: "json_object" }
+      }),
+      OPENAI_TIMEOUT_MS,
+      'Comparative Insights'
+    );
 
-  const result = JSON.parse(completion.choices[0].message.content || '{}');
-  
-  log?.(`[Comparative_Insights_Engine] Analysis complete.`);
-  
-  return {
-    comparative_analysis: result.comparative_analysis || {
-      strengths_relative: [],
-      weaknesses_relative: [],
-      industry_best_practices: [],
-      emerging_trends: [],
-    },
-    recommendations: result.recommendations || {
-      high_priority: [],
-      medium_priority: [],
-      innovative_opportunities: [],
-    },
-    implementation_notes: result.implementation_notes || [],
-  };
+    const result = JSON.parse(completion.choices[0].message.content || '{}');
+    
+    log?.(`[Comparative_Insights_Engine] Analysis complete.`);
+    
+    return {
+      comparative_analysis: result.comparative_analysis || defaultResult.comparative_analysis,
+      recommendations: result.recommendations || defaultResult.recommendations,
+      implementation_notes: result.implementation_notes || defaultResult.implementation_notes,
+    };
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    log?.(`[Comparative_Insights_Engine] ERROR: ${errorMsg}. Using defaults.`);
+    return defaultResult;
+  }
 }
 
 // ============================================================================
@@ -1635,15 +1669,19 @@ async function runCouncilStage1(
       log?.(`[LLM_Council] > [${personaConfig.name}] Analyzing...`);
       
       try {
-        const completion = await openai.chat.completions.create({
-          model: "gpt-4o-mini",
-          messages: [
-            { role: "system", content: personaConfig.prompt },
-            { role: "user", content: analysisContext }
-          ],
-          temperature: 0.8,
-          response_format: { type: "json_object" }
-        });
+        const completion = await withTimeout(
+          openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages: [
+              { role: "system", content: personaConfig.prompt },
+              { role: "user", content: analysisContext }
+            ],
+            temperature: 0.8,
+            response_format: { type: "json_object" }
+          }),
+          OPENAI_TIMEOUT_MS,
+          `Council ${personaConfig.name}`
+        );
         
         const result = JSON.parse(completion.choices[0].message.content || '{}');
         log?.(`[LLM_Council] > [${personaConfig.name}] Found ${result.findings?.length || 0} issues (confidence: ${result.confidence})`);
@@ -1656,7 +1694,8 @@ async function runCouncilStage1(
           confidence: result.confidence || 0.5
         } as CouncilOpinion;
       } catch (error) {
-        log?.(`[LLM_Council] > [${personaConfig.name}] ERROR: ${error}`);
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        log?.(`[LLM_Council] > [${personaConfig.name}] ERROR: ${errorMsg}`);
         return {
           persona,
           personaName: personaConfig.name,
@@ -1827,15 +1866,19 @@ Your own analysis was one of these, but evaluate ALL objectively.`;
       log?.(`[LLM_Council] > [${personaConfig.name}] Reviewing peers...`);
       
       try {
-        const completion = await openai.chat.completions.create({
-          model: "gpt-4o-mini",
-          messages: [
-            { role: "system", content: PEER_REVIEW_PROMPT },
-            { role: "user", content: reviewContext }
-          ],
-          temperature: 0.7,
-          response_format: { type: "json_object" }
-        });
+        const completion = await withTimeout(
+          openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages: [
+              { role: "system", content: PEER_REVIEW_PROMPT },
+              { role: "user", content: reviewContext }
+            ],
+            temperature: 0.7,
+            response_format: { type: "json_object" }
+          }),
+          OPENAI_TIMEOUT_MS,
+          `Peer Review ${personaConfig.name}`
+        );
         
         const result = JSON.parse(completion.choices[0].message.content || '{}');
         
@@ -1846,7 +1889,8 @@ Your own analysis was one of these, but evaluate ALL objectively.`;
           rationale: result.rationale || ''
         } as PeerReview;
       } catch (error) {
-        log?.(`[LLM_Council] > [${personaConfig.name}] Review ERROR: ${error}`);
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        log?.(`[LLM_Council] > [${personaConfig.name}] Review ERROR: ${errorMsg}`);
         return {
           reviewer: persona,
           evaluations: [],
@@ -1914,15 +1958,19 @@ Identify any dissenting opinions where reviewers disagreed.
 The rankings have already been computed programmatically - use them as the authoritative priority list.`;
   
   try {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: CHAIRMAN_PROMPT },
-        { role: "user", content: chairmanContext }
-      ],
-      temperature: 0.6,
-      response_format: { type: "json_object" }
-    });
+    const completion = await withTimeout(
+      openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: CHAIRMAN_PROMPT },
+          { role: "user", content: chairmanContext }
+        ],
+        temperature: 0.6,
+        response_format: { type: "json_object" }
+      }),
+      OPENAI_TIMEOUT_MS,
+      'Chairman Synthesis'
+    );
     
     const result = JSON.parse(completion.choices[0].message.content || '{}');
     
@@ -1935,7 +1983,8 @@ The rankings have already been computed programmatically - use them as the autho
       dissentingOpinions: result.dissentingOpinions || []
     };
   } catch (error) {
-    log?.(`[LLM_Council] Chairman ERROR: ${error}`);
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    log?.(`[LLM_Council] Chairman ERROR: ${errorMsg}`);
     return {
       consensusScore: consensusScore,
       finalRanking: preComputedRanking,
