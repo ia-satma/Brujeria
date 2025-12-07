@@ -278,13 +278,13 @@ export function PriorityTaskBoard({ tasks }: PriorityTaskBoardProps) {
               Actionable recommendations organized by priority level
             </CardDescription>
           </div>
-          <div className="flex items-center gap-4 text-sm">
-            <div className="text-center">
-              <div className="text-2xl font-mono font-bold text-primary">{completedTasks}/{totalTasks}</div>
+          <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2 sm:gap-4 text-sm">
+            <div className="text-right sm:text-center">
+              <div className="text-xl sm:text-2xl font-mono font-bold text-primary">{completedTasks}/{totalTasks}</div>
               <div className="text-xs text-muted-foreground">Tasks Done</div>
             </div>
-            <div className="text-center">
-              <div className="text-2xl font-mono font-bold text-emerald-500">{completedHours}h</div>
+            <div className="text-right sm:text-center">
+              <div className="text-xl sm:text-2xl font-mono font-bold text-emerald-500">{completedHours}h</div>
               <div className="text-xs text-muted-foreground">of {totalHours}h</div>
             </div>
           </div>

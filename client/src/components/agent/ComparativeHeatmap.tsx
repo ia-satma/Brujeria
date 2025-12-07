@@ -209,27 +209,27 @@ export function ComparativeHeatmap({ report }: ComparativeHeatmapProps) {
             </div>
           </TooltipProvider>
 
-          <div className="flex items-center justify-center gap-4 pt-4 border-t border-border">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span>Score Legend:</span>
+          <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-4 pt-4 border-t border-border">
+            <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 text-xs text-muted-foreground">
+              <span className="w-full text-center sm:w-auto">Score Legend:</span>
               <div className="flex items-center gap-1">
-                <div className="w-4 h-4 rounded bg-emerald-500" />
+                <div className="w-3 h-3 sm:w-4 sm:h-4 rounded bg-emerald-500" />
                 <span>8.5+</span>
               </div>
               <div className="flex items-center gap-1">
-                <div className="w-4 h-4 rounded bg-emerald-400" />
+                <div className="w-3 h-3 sm:w-4 sm:h-4 rounded bg-emerald-400" />
                 <span>7.5-8.4</span>
               </div>
               <div className="flex items-center gap-1">
-                <div className="w-4 h-4 rounded bg-amber-400" />
+                <div className="w-3 h-3 sm:w-4 sm:h-4 rounded bg-amber-400" />
                 <span>6.5-7.4</span>
               </div>
               <div className="flex items-center gap-1">
-                <div className="w-4 h-4 rounded bg-amber-500" />
+                <div className="w-3 h-3 sm:w-4 sm:h-4 rounded bg-amber-500" />
                 <span>5.5-6.4</span>
               </div>
               <div className="flex items-center gap-1">
-                <div className="w-4 h-4 rounded bg-red-500" />
+                <div className="w-3 h-3 sm:w-4 sm:h-4 rounded bg-red-500" />
                 <span>&lt;5.5</span>
               </div>
             </div>

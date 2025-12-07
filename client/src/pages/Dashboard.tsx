@@ -271,7 +271,7 @@ export default function Dashboard() {
             SATMA - Agencia Creativa
           </a>
         </p>
-        <p className="text-xs text-[#2A3E61]/40 mt-2 font-paragraph">
+        <p className="text-xs text-[#2A3E61]/40 mt-2 font-paragraph break-words px-2">
           Simón Bolivar # 224 Of. 301 Piso 3, Col. Chepevera, Monterrey, N.L. | +52 (81) 2474 9049
         </p>
       </footer>

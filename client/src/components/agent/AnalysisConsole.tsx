@@ -419,16 +419,16 @@ export function AnalysisConsole({ logs, isProcessing, error }: AnalysisConsolePr
           aria-label="Analysis console navigation"
         >
           <TabsTrigger value="overview" data-testid="tab-overview" className="min-h-[44px]">
-            <Activity className="w-4 h-4 mr-2" aria-hidden="true" />
-            Activity
+            <Activity className="w-4 h-4 sm:mr-2" aria-hidden="true" />
+            <span className="hidden sm:inline">Activity</span>
           </TabsTrigger>
           <TabsTrigger value="agents" data-testid="tab-agents" className="min-h-[44px]">
-            <Bot className="w-4 h-4 mr-2" aria-hidden="true" />
-            Agents
+            <Bot className="w-4 h-4 sm:mr-2" aria-hidden="true" />
+            <span className="hidden sm:inline">Agents</span>
           </TabsTrigger>
           <TabsTrigger value="preview" data-testid="tab-preview" className="min-h-[44px]">
-            <BarChart3 className="w-4 h-4 mr-2" aria-hidden="true" />
-            Preview
+            <BarChart3 className="w-4 h-4 sm:mr-2" aria-hidden="true" />
+            <span className="hidden sm:inline">Preview</span>
           </TabsTrigger>
         </TabsList>
         

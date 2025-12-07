@@ -952,7 +952,7 @@ export default function UserGuide() {
                           <p className="text-xs text-[#2A3E61]/60">{specialists.length} empleados • Análisis granular y especializado</p>
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2">
                         {specialists.map((employee) => (
                           <div key={employee.id} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg" data-testid={`employee-${employee.id}`}>
                             <div className="w-6 h-6 rounded-full bg-[#2A3E61]/10 flex items-center justify-center text-[#2A3E61] flex-shrink-0">
@@ -965,16 +965,16 @@ export default function UserGuide() {
                     </div>
                   </div>
 
-                  <div className="mt-6 flex justify-center gap-4">
-                    <div className="flex items-center gap-2 text-sm text-[#2A3E61]/70">
+                  <div className="mt-6 flex flex-wrap justify-center gap-2 sm:gap-4">
+                    <div className="flex items-center gap-2 text-xs sm:text-sm text-[#2A3E61]/70">
                       <div className="w-3 h-3 rounded-full bg-[#2A3E61]"></div>
                       <span>Ejecutivos ({executiveCouncil.length})</span>
                     </div>
-                    <div className="flex items-center gap-2 text-sm text-[#2A3E61]/70">
+                    <div className="flex items-center gap-2 text-xs sm:text-sm text-[#2A3E61]/70">
                       <div className="w-3 h-3 rounded-full bg-[#59E2DE]"></div>
                       <span>Directores ({directors.length})</span>
                     </div>
-                    <div className="flex items-center gap-2 text-sm text-[#2A3E61]/70">
+                    <div className="flex items-center gap-2 text-xs sm:text-sm text-[#2A3E61]/70">
                       <div className="w-3 h-3 rounded-full bg-[#2A3E61]/20"></div>
                       <span>Especialistas ({specialists.length})</span>
                     </div>

@@ -490,7 +490,7 @@ function SiteDetailView({ site }: { site: SiteAnalysis }) {
       <div className="col-span-1 space-y-6">
         <Card>
           <CardContent className="pt-6">
-            <div className="h-[250px] w-full" role="img" aria-label="Gráfico radar mostrando puntuaciones en Visual, UX, Contenido y Técnico">
+            <div className="h-[200px] sm:h-[250px] w-full" role="img" aria-label="Gráfico radar mostrando puntuaciones en Visual, UX, Contenido y Técnico">
               <ResponsiveContainer width="100%" height="100%">
                 <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
                   <PolarGrid stroke="#334155" />
