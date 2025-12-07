@@ -28,7 +28,7 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
-const urlSchema = z.string().url({ message: "Please enter a valid URL (e.g., https://example.com)" });
+const urlSchema = z.string().url({ message: "Por favor ingresa una URL válida (ej: https://ejemplo.com)" });
 
 const step1Schema = z.object({
   clientUrl: urlSchema,
@@ -38,9 +38,9 @@ const step2Schema = z.object({
   inputMethod: z.enum(["manual", "discover"]),
   competitorUrls: z.array(
     z.object({
-      value: z.string().url({ message: "Please enter a valid URL" }),
+      value: z.string().url({ message: "Por favor ingresa una URL válida" }),
     })
-  ).min(1, "Add at least one competitor"),
+  ).min(1, "Agrega al menos un competidor"),
 });
 
 type Step1Values = z.infer<typeof step1Schema>;
@@ -56,9 +56,9 @@ interface IntakeWizardProps {
 }
 
 const steps = [
-  { id: 1, title: "Client Website", description: "Enter your target website" },
-  { id: 2, title: "Competitors", description: "Add competitor websites" },
-  { id: 3, title: "Review", description: "Confirm and start analysis" },
+  { id: 1, title: "Sitio del Cliente", description: "Ingresa el sitio web objetivo" },
+  { id: 2, title: "Competidores", description: "Agrega sitios web competidores" },
+  { id: 3, title: "Revisar", description: "Confirma e inicia el análisis" },
 ];
 
 export function IntakeWizard({ onSubmit }: IntakeWizardProps) {
@@ -157,7 +157,7 @@ export function IntakeWizard({ onSubmit }: IntakeWizardProps) {
   const handleDiscoverSubmit = () => {
     const selectedUrls = extractedDomains.filter((d) => d.selected).map((d) => d.url);
     if (selectedUrls.length < 1) {
-      setExtractError("Please select at least 1 competitor");
+      setExtractError("Por favor selecciona al menos 1 competidor");
       return;
     }
     setCompetitorUrls(selectedUrls);
@@ -189,7 +189,7 @@ export function IntakeWizard({ onSubmit }: IntakeWizardProps) {
       setFocusedDomainIndex(0);
     } catch (err) {
       console.error("Domain extraction error:", err);
-      setExtractError("Error extracting domains. Please check the URL and try again.");
+      setExtractError("Error al extraer dominios. Por favor verifica la URL e intenta de nuevo.");
     } finally {
       setIsExtracting(false);
     }
@@ -232,7 +232,7 @@ export function IntakeWizard({ onSubmit }: IntakeWizardProps) {
 
   const getStepAnnouncement = () => {
     const step = steps.find(s => s.id === currentStep);
-    return step ? `Step ${currentStep} of ${steps.length}: ${step.title}` : '';
+    return step ? `Paso ${currentStep} de ${steps.length}: ${step.title}` : '';
   };
 
   return (
@@ -250,7 +250,7 @@ export function IntakeWizard({ onSubmit }: IntakeWizardProps) {
         <div 
           className="flex items-center justify-between relative"
           role="list"
-          aria-label="Wizard progress"
+          aria-label="Progreso del asistente"
         >
           <div className="absolute top-[22px] left-0 right-0 h-0.5 bg-border -z-10" />
           <div
@@ -276,10 +276,10 @@ export function IntakeWizard({ onSubmit }: IntakeWizardProps) {
                 )}
                 aria-label={
                   currentStep > step.id 
-                    ? `Step ${step.id}: ${step.title} - Completed` 
+                    ? `Paso ${step.id}: ${step.title} - Completado` 
                     : currentStep === step.id 
-                    ? `Step ${step.id}: ${step.title} - Current step` 
-                    : `Step ${step.id}: ${step.title} - Upcoming`
+                    ? `Paso ${step.id}: ${step.title} - Paso actual` 
+                    : `Paso ${step.id}: ${step.title} - Pendiente`
                 }
               >
                 {currentStep > step.id ? (
@@ -325,10 +325,10 @@ export function IntakeWizard({ onSubmit }: IntakeWizardProps) {
                   <div className="p-2 rounded-lg bg-primary/10 text-primary">
                     <LayoutTemplate className="w-5 h-5" aria-hidden="true" />
                   </div>
-                  Enter Your Client Website
+                  Ingresa el Sitio Web del Cliente
                 </CardTitle>
                 <CardDescription>
-                  This is the website you want to analyze and compare against competitors.
+                  Este es el sitio web que deseas analizar y comparar contra los competidores.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -339,7 +339,7 @@ export function IntakeWizard({ onSubmit }: IntakeWizardProps) {
                       name="clientUrl"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-foreground/80" id="client-url-label">Website URL</FormLabel>
+                          <FormLabel className="text-foreground/80" id="client-url-label">URL del Sitio Web</FormLabel>
                           <FormControl>
                             <div className="relative">
                               <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
@@ -354,7 +354,7 @@ export function IntakeWizard({ onSubmit }: IntakeWizardProps) {
                             </div>
                           </FormControl>
                           <p id="client-url-description" className="sr-only">
-                            Enter the full URL of your client website including https://
+                            Ingresa la URL completa del sitio web del cliente incluyendo https://
                           </p>
                           <FormMessage />
                         </FormItem>
@@ -364,10 +364,10 @@ export function IntakeWizard({ onSubmit }: IntakeWizardProps) {
                     <div className="flex justify-end">
                       <Button
                         type="submit"
-                        className="gap-2 min-h-[44px]"
+                        className="gap-2 min-h-[44px] bg-primary hover:bg-primary/90"
                         data-testid="button-wizard-step1-next"
                       >
-                        Next Step
+                        Siguiente
                         <ArrowRight className="w-4 h-4" aria-hidden="true" />
                       </Button>
                     </div>
@@ -393,44 +393,44 @@ export function IntakeWizard({ onSubmit }: IntakeWizardProps) {
                   ref={stepHeadingRef}
                   tabIndex={-1}
                 >
-                  <div className="p-2 rounded-lg bg-amber-500/10 text-amber-500">
+                  <div className="p-2 rounded-lg bg-accent/20 text-primary">
                     <Globe className="w-5 h-5" aria-hidden="true" />
                   </div>
-                  Add Competitor Websites
+                  Agrega Sitios Web Competidores
                 </CardTitle>
                 <CardDescription>
-                  Add competitor websites to compare against your client site.
+                  Agrega sitios web competidores para comparar contra el sitio de tu cliente.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="flex gap-2 p-1 bg-muted/30 rounded-lg" role="tablist" aria-label="Input method selection">
+                <div className="flex gap-2 p-1 bg-muted/30 rounded-lg" role="tablist" aria-label="Selección de método de entrada">
                   <Button
                     type="button"
                     variant={inputMethod === "manual" ? "default" : "ghost"}
                     size="sm"
                     onClick={() => setInputMethod("manual")}
-                    className="flex-1 min-h-[44px]"
+                    className={`flex-1 min-h-[44px] ${inputMethod === "manual" ? "bg-primary" : ""}`}
                     data-testid="toggle-wizard-manual-mode"
                     role="tab"
                     aria-selected={inputMethod === "manual"}
                     aria-controls="manual-panel"
                   >
                     <LayoutTemplate className="w-4 h-4 mr-2" aria-hidden="true" />
-                    Manual Entry
+                    Entrada Manual
                   </Button>
                   <Button
                     type="button"
                     variant={inputMethod === "discover" ? "default" : "ghost"}
                     size="sm"
                     onClick={() => setInputMethod("discover")}
-                    className="flex-1 min-h-[44px]"
+                    className={`flex-1 min-h-[44px] ${inputMethod === "discover" ? "bg-primary" : ""}`}
                     data-testid="toggle-wizard-discover-mode"
                     role="tab"
                     aria-selected={inputMethod === "discover"}
                     aria-controls="discover-panel"
                   >
                     <Search className="w-4 h-4 mr-2" aria-hidden="true" />
-                    Auto-Discover
+                    Auto-Descubrir
                   </Button>
                 </div>
 
@@ -445,7 +445,7 @@ export function IntakeWizard({ onSubmit }: IntakeWizardProps) {
                     >
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
-                          <Label className="text-foreground/80" id="competitor-urls-label">Competitor URLs</Label>
+                          <Label className="text-foreground/80" id="competitor-urls-label">URLs de Competidores</Label>
                           <Button
                             type="button"
                             variant="ghost"
@@ -453,10 +453,10 @@ export function IntakeWizard({ onSubmit }: IntakeWizardProps) {
                             onClick={() => append({ value: "" })}
                             className="h-8 min-h-[44px] text-xs hover:bg-muted gap-1"
                             data-testid="button-wizard-add-competitor"
-                            aria-label="Add another competitor URL field"
+                            aria-label="Agregar otro campo de URL de competidor"
                           >
                             <Plus className="w-3 h-3" aria-hidden="true" />
-                            Add More
+                            Agregar Más
                           </Button>
                         </div>
 
@@ -476,7 +476,7 @@ export function IntakeWizard({ onSubmit }: IntakeWizardProps) {
                                           placeholder={`https://competitor-${index + 1}.com`}
                                           className="font-mono text-sm pl-10 h-12"
                                           data-testid={`input-wizard-competitor-${index}`}
-                                          aria-label={`Competitor ${index + 1} URL`}
+                                          aria-label={`URL del Competidor ${index + 1}`}
                                           {...field}
                                         />
                                       </div>
@@ -489,7 +489,7 @@ export function IntakeWizard({ onSubmit }: IntakeWizardProps) {
                                         onClick={() => remove(index)}
                                         className="shrink-0 text-muted-foreground hover:text-destructive min-h-[44px] min-w-[44px]"
                                         data-testid={`button-wizard-remove-competitor-${index}`}
-                                        aria-label={`Remove competitor ${index + 1}`}
+                                        aria-label={`Eliminar competidor ${index + 1}`}
                                       >
                                         <Trash2 className="w-4 h-4" aria-hidden="true" />
                                       </Button>
@@ -512,14 +512,14 @@ export function IntakeWizard({ onSubmit }: IntakeWizardProps) {
                           data-testid="button-wizard-step2-back"
                         >
                           <ArrowLeft className="w-4 h-4" aria-hidden="true" />
-                          Back
+                          Atrás
                         </Button>
                         <Button
                           type="submit"
-                          className="gap-2 min-h-[44px]"
+                          className="gap-2 min-h-[44px] bg-primary hover:bg-primary/90"
                           data-testid="button-wizard-step2-next"
                         >
-                          Review
+                          Revisar
                           <ArrowRight className="w-4 h-4" aria-hidden="true" />
                         </Button>
                       </div>
@@ -533,9 +533,9 @@ export function IntakeWizard({ onSubmit }: IntakeWizardProps) {
                     className="space-y-6"
                   >
                     <div className="space-y-3">
-                      <Label className="text-foreground/80" id="portfolio-url-label">Portfolio / Agency URL</Label>
+                      <Label className="text-foreground/80" id="portfolio-url-label">URL del Portafolio / Agencia</Label>
                       <p className="text-xs text-muted-foreground" id="portfolio-url-description">
-                        Enter a portfolio or agency URL to automatically discover competitor websites.
+                        Ingresa una URL de portafolio o agencia para descubrir automáticamente sitios web competidores.
                       </p>
                       <div className="flex gap-2">
                         <div className="relative flex-1">
@@ -557,14 +557,14 @@ export function IntakeWizard({ onSubmit }: IntakeWizardProps) {
                           disabled={!portfolioUrl || isExtracting}
                           className="min-h-[44px]"
                           data-testid="button-wizard-discover"
-                          aria-label={isExtracting ? "Discovering domains..." : "Discover competitor domains"}
+                          aria-label={isExtracting ? "Descubriendo dominios..." : "Descubrir dominios competidores"}
                         >
                           {isExtracting ? (
                             <Loader2 className="w-4 h-4 mr-2 animate-spin" aria-hidden="true" />
                           ) : (
                             <Search className="w-4 h-4 mr-2" aria-hidden="true" />
                           )}
-                          Discover
+                          Descubrir
                         </Button>
                       </div>
                     </div>
@@ -585,10 +585,10 @@ export function IntakeWizard({ onSubmit }: IntakeWizardProps) {
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
                           <span className="text-sm font-medium text-foreground/80" id="discovered-domains-label">
-                            Discovered Domains
+                            Dominios Descubiertos
                           </span>
                           <Badge variant="secondary" aria-live="polite">
-                            {extractedDomains.filter((d) => d.selected).length} selected
+                            {extractedDomains.filter((d) => d.selected).length} seleccionados
                           </Badge>
                         </div>
                         <div 
@@ -642,7 +642,7 @@ export function IntakeWizard({ onSubmit }: IntakeWizardProps) {
                           ))}
                         </div>
                         <p className="text-xs text-muted-foreground" aria-live="polite">
-                          Use arrow keys to navigate, Enter or Space to toggle selection
+                          Usa las flechas para navegar, Enter o Espacio para alternar la selección
                         </p>
                       </div>
                     )}
@@ -656,15 +656,15 @@ export function IntakeWizard({ onSubmit }: IntakeWizardProps) {
                         data-testid="button-wizard-discover-back"
                       >
                         <ArrowLeft className="w-4 h-4" aria-hidden="true" />
-                        Back
+                        Atrás
                       </Button>
                       <Button
                         onClick={handleDiscoverSubmit}
                         disabled={extractedDomains.filter((d) => d.selected).length < 1}
-                        className="gap-2 min-h-[44px]"
+                        className="gap-2 min-h-[44px] bg-primary hover:bg-primary/90"
                         data-testid="button-wizard-discover-next"
                       >
-                        Review
+                        Revisar
                         <ArrowRight className="w-4 h-4" aria-hidden="true" />
                       </Button>
                     </div>
@@ -690,13 +690,13 @@ export function IntakeWizard({ onSubmit }: IntakeWizardProps) {
                   ref={stepHeadingRef}
                   tabIndex={-1}
                 >
-                  <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-500">
+                  <div className="p-2 rounded-lg bg-accent/20 text-primary">
                     <Check className="w-5 h-5" aria-hidden="true" />
                   </div>
-                  Review Your Analysis
+                  Revisar e Iniciar Análisis
                 </CardTitle>
                 <CardDescription>
-                  Confirm the websites to be analyzed before starting.
+                  Confirma tus selecciones e inicia el análisis de benchmarking.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -704,26 +704,26 @@ export function IntakeWizard({ onSubmit }: IntakeWizardProps) {
                   <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
                     <div className="flex items-center gap-2 text-sm font-medium text-primary mb-2">
                       <LayoutTemplate className="w-4 h-4" aria-hidden="true" />
-                      Client Website (Target)
+                      Sitio Web del Cliente (Objetivo)
                     </div>
                     <p className="font-mono text-sm text-foreground break-all" data-testid="text-review-client-url">
                       {clientUrl}
                     </p>
                   </div>
 
-                  <div className="p-4 rounded-lg bg-amber-500/5 border border-amber-500/20">
-                    <div className="flex items-center gap-2 text-sm font-medium text-amber-500 mb-3">
+                  <div className="p-4 rounded-lg bg-accent/5 border border-accent/30">
+                    <div className="flex items-center gap-2 text-sm font-medium text-primary mb-3">
                       <Globe className="w-4 h-4" aria-hidden="true" />
-                      Competitor Websites ({competitorUrls.length})
+                      Competidores ({competitorUrls.length})
                     </div>
-                    <ul className="space-y-2 max-h-40 overflow-y-auto" aria-label="List of competitor websites">
+                    <ul className="space-y-2 max-h-40 overflow-y-auto" aria-label="Lista de sitios web competidores">
                       {competitorUrls.map((url, index) => (
                         <li
                           key={index}
                           className="flex items-center gap-2 text-sm"
                           data-testid={`text-review-competitor-${index}`}
                         >
-                          <Circle className="w-2 h-2 text-amber-500 fill-current" aria-hidden="true" />
+                          <Circle className="w-2 h-2 text-accent fill-current" aria-hidden="true" />
                           <span className="font-mono text-foreground/80 break-all">{url}</span>
                         </li>
                       ))}
@@ -733,11 +733,11 @@ export function IntakeWizard({ onSubmit }: IntakeWizardProps) {
 
                 <div className="p-4 rounded-lg bg-muted/30 border border-border/50">
                   <p className="text-sm text-muted-foreground">
-                    <strong className="text-foreground">Total websites:</strong>{" "}
-                    {competitorUrls.length + 1} ({1} client + {competitorUrls.length} competitors)
+                    <strong className="text-foreground">Total de sitios web:</strong>{" "}
+                    {competitorUrls.length + 1} ({1} cliente + {competitorUrls.length} competidores)
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Our AI agents will analyze design, UX, content, and technical performance.
+                    Nuestros agentes de IA analizarán diseño, UX, contenido y rendimiento técnico.
                   </p>
                 </div>
 
@@ -750,15 +750,15 @@ export function IntakeWizard({ onSubmit }: IntakeWizardProps) {
                     data-testid="button-wizard-step3-back"
                   >
                     <ArrowLeft className="w-4 h-4" aria-hidden="true" />
-                    Back
+                    Atrás
                   </Button>
                   <Button
                     onClick={handleFinalSubmit}
-                    className="gap-2 shadow-primary/25 shadow-lg min-h-[44px]"
+                    className="gap-2 shadow-primary/25 shadow-lg min-h-[44px] bg-primary hover:bg-primary/90"
                     data-testid="button-wizard-start-analysis"
                   >
                     <Play className="w-4 h-4 fill-current" aria-hidden="true" />
-                    Start Analysis
+                    Iniciar Análisis
                   </Button>
                 </div>
               </CardContent>

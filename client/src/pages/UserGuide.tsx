@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Link as WouterLink } from "wouter";
 import { 
   Book, 
-  ChevronDown, 
   ChevronRight, 
   Globe, 
   Zap, 
@@ -17,7 +16,17 @@ import {
   CheckCircle,
   Play,
   BarChart3,
-  Download
+  Download,
+  Bot,
+  Brain,
+  Eye,
+  MousePointer,
+  Palette,
+  Gauge,
+  Users,
+  Lightbulb,
+  Award,
+  Network
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -40,57 +49,57 @@ interface QuickstartStep {
 const quickstartSteps: QuickstartStep[] = [
   {
     id: 1,
-    title: "Enter Your Website URL",
-    description: "Start by entering your client website URL in the first field.",
+    title: "Ingresa la URL de tu Cliente",
+    description: "Comienza ingresando la URL del sitio web de tu cliente en el primer campo.",
     icon: <Globe className="w-6 h-6" />,
     details: [
-      "Enter the full URL including https://",
-      "Make sure the website is publicly accessible",
-      "The analysis works best with live production sites"
+      "Ingresa la URL completa incluyendo https://",
+      "Asegúrate de que el sitio sea accesible públicamente",
+      "El análisis funciona mejor con sitios en producción"
     ]
   },
   {
     id: 2,
-    title: "Add Competitor URLs",
-    description: "Add up to 5 competitor websites to benchmark against.",
+    title: "Agrega URLs de Competidores",
+    description: "Agrega hasta 5 sitios web de competidores para comparar.",
     icon: <Target className="w-6 h-6" />,
     details: [
-      "Click 'Add Competitor' to add more URLs",
-      "Choose direct competitors or industry leaders",
-      "More competitors provide richer comparative insights"
+      "Haz clic en 'Agregar Competidor' para añadir más URLs",
+      "Elige competidores directos o líderes de la industria",
+      "Más competidores proporcionan insights comparativos más ricos"
     ]
   },
   {
     id: 3,
-    title: "Start the Analysis",
-    description: "Click the analyze button to begin the AI-powered analysis.",
+    title: "Inicia el Análisis",
+    description: "Haz clic en el botón de analizar para comenzar el análisis con IA.",
     icon: <Play className="w-6 h-6" />,
     details: [
-      "Our AI agents will scrape and analyze each website",
-      "Watch the real-time progress in the analysis console",
-      "Analysis typically takes 2-5 minutes depending on site complexity"
+      "Nuestros agentes de IA extraerán y analizarán cada sitio web",
+      "Observa el progreso en tiempo real en la consola de análisis",
+      "El análisis típicamente toma 2-5 minutos dependiendo de la complejidad"
     ]
   },
   {
     id: 4,
-    title: "Review Results",
-    description: "Explore the comprehensive benchmarking report.",
+    title: "Revisa los Resultados",
+    description: "Explora el reporte completo de benchmarking.",
     icon: <BarChart3 className="w-6 h-6" />,
     details: [
-      "View scores across visual design, UX, content, and technical performance",
-      "Compare your site against each competitor",
-      "Identify strengths and areas for improvement"
+      "Ve puntuaciones en diseño visual, UX, contenido y rendimiento técnico",
+      "Compara tu sitio contra cada competidor",
+      "Identifica fortalezas y áreas de mejora"
     ]
   },
   {
     id: 5,
-    title: "Export & Share",
-    description: "Download your report as a PDF or share with your team.",
+    title: "Exporta y Comparte",
+    description: "Descarga tu reporte como PDF o compártelo con tu equipo.",
     icon: <Download className="w-6 h-6" />,
     details: [
-      "Export detailed PDF reports for stakeholders",
-      "Use insights to prioritize improvements",
-      "Track progress by running analyses over time"
+      "Exporta reportes PDF detallados para stakeholders",
+      "Usa los insights para priorizar mejoras",
+      "Haz seguimiento del progreso ejecutando análisis a lo largo del tiempo"
     ]
   }
 ];
@@ -103,77 +112,253 @@ interface FAQItem {
 
 const faqItems: FAQItem[] = [
   {
-    category: "Getting Started",
-    question: "What types of websites can be analyzed?",
-    answer: "Our tool can analyze any publicly accessible website. This includes e-commerce sites, corporate websites, blogs, SaaS platforms, and more. The website must be live and not behind a login or paywall for accurate analysis."
+    category: "Primeros Pasos",
+    question: "¿Qué tipos de sitios web se pueden analizar?",
+    answer: "Nuestra herramienta puede analizar cualquier sitio web accesible públicamente. Esto incluye sitios de e-commerce, sitios corporativos, blogs, plataformas SaaS y más. El sitio debe estar en línea y no estar detrás de un login o paywall para un análisis preciso."
   },
   {
-    category: "Getting Started",
-    question: "How long does an analysis take?",
-    answer: "A typical analysis takes 2-5 minutes depending on the number of competitor websites and the complexity of the sites being analyzed. You can watch the progress in real-time through our analysis console."
+    category: "Primeros Pasos",
+    question: "¿Cuánto tiempo toma un análisis?",
+    answer: "Un análisis típico toma 2-5 minutos dependiendo del número de sitios web competidores y la complejidad de los sitios analizados. Puedes ver el progreso en tiempo real a través de nuestra consola de análisis."
   },
   {
-    category: "Getting Started",
-    question: "How many competitors can I benchmark against?",
-    answer: "You can benchmark against up to 5 competitor websites in a single analysis. We recommend including 2-3 direct competitors for the most actionable insights."
+    category: "Primeros Pasos",
+    question: "¿Contra cuántos competidores puedo hacer benchmark?",
+    answer: "Puedes hacer benchmark contra hasta 5 sitios web competidores en un solo análisis. Recomendamos incluir 2-3 competidores directos para los insights más accionables."
   },
   {
-    category: "Analysis & Scoring",
-    question: "What aspects of websites are analyzed?",
-    answer: "Our AI agents analyze four key areas: Visual Aesthetics (design quality, color harmony, typography), UX & Navigation (usability, information architecture, accessibility), Content & Storytelling (messaging clarity, brand voice, engagement), and Technical Performance (load times, mobile responsiveness, SEO factors)."
+    category: "Análisis y Puntuación",
+    question: "¿Qué aspectos de los sitios web se analizan?",
+    answer: "Nuestros agentes de IA analizan cuatro áreas clave: Estética Visual (calidad del diseño, armonía de color, tipografía), UX y Navegación (usabilidad, arquitectura de información, accesibilidad), Contenido y Storytelling (claridad del mensaje, voz de marca, engagement), y Rendimiento Técnico (tiempos de carga, responsividad móvil, factores SEO)."
   },
   {
-    category: "Analysis & Scoring",
-    question: "How is the scoring system calculated?",
-    answer: "Each category is scored on a scale of 1-10 by specialized AI agents. The overall score is a weighted average of all categories. Scores are calibrated against industry benchmarks and best practices."
+    category: "Análisis y Puntuación",
+    question: "¿Cómo se calcula el sistema de puntuación?",
+    answer: "Cada categoría se califica en una escala del 1 al 10 por agentes de IA especializados. El puntaje general es un promedio ponderado de todas las categorías. Los puntajes están calibrados contra benchmarks de la industria y mejores prácticas."
   },
   {
-    category: "Analysis & Scoring",
-    question: "Can I trust the AI analysis results?",
-    answer: "Our multi-agent system uses specialized AI models trained on web design and UX best practices. While AI analysis provides valuable insights, we recommend using it as one input alongside human expert review for critical decisions."
+    category: "Análisis y Puntuación",
+    question: "¿Puedo confiar en los resultados del análisis de IA?",
+    answer: "Nuestro sistema multi-agente usa modelos de IA especializados entrenados en mejores prácticas de diseño web y UX. Aunque el análisis de IA proporciona insights valiosos, recomendamos usarlo como un insumo junto con revisión de expertos humanos para decisiones críticas."
   },
   {
-    category: "Reports & Export",
-    question: "Can I export the analysis results?",
-    answer: "Yes! You can export your complete analysis as a PDF report. The PDF includes all scores, comparisons, detailed insights, and actionable recommendations."
+    category: "Reportes y Exportación",
+    question: "¿Puedo exportar los resultados del análisis?",
+    answer: "¡Sí! Puedes exportar tu análisis completo como un reporte PDF. El PDF incluye todos los puntajes, comparaciones, insights detallados y recomendaciones accionables."
   },
   {
-    category: "Reports & Export",
-    question: "How long are analysis reports stored?",
-    answer: "All analysis reports are stored in your account and can be accessed anytime. You can view historical reports to track improvements over time."
+    category: "Reportes y Exportación",
+    question: "¿Cuánto tiempo se guardan los reportes de análisis?",
+    answer: "Todos los reportes de análisis se guardan en tu cuenta y pueden ser accedidos en cualquier momento. Puedes ver reportes históricos para hacer seguimiento de mejoras a lo largo del tiempo."
   },
   {
-    category: "Technical",
-    question: "Is my website data secure?",
-    answer: "Yes. We only analyze publicly accessible content and do not store sensitive data. All analysis is performed securely and data is encrypted in transit."
+    category: "Técnico",
+    question: "¿Están seguros los datos de mi sitio web?",
+    answer: "Sí. Solo analizamos contenido accesible públicamente y no almacenamos datos sensibles. Todo el análisis se realiza de forma segura y los datos están encriptados en tránsito."
   },
   {
-    category: "Technical",
-    question: "What if the analysis fails or times out?",
-    answer: "If an analysis fails, check that all URLs are correct and publicly accessible. Some websites with aggressive bot protection may not be fully analyzable. Try again or contact support if issues persist."
+    category: "Técnico",
+    question: "¿Qué pasa si el análisis falla o se agota el tiempo?",
+    answer: "Si un análisis falla, verifica que todas las URLs sean correctas y accesibles públicamente. Algunos sitios web con protección agresiva contra bots pueden no ser completamente analizables. Intenta de nuevo o contacta soporte si los problemas persisten."
   }
 ];
 
-const featureCards = [
+interface SubAgent {
+  name: string;
+  description: string;
+}
+
+interface AgentCard {
+  icon: React.ReactNode;
+  title: string;
+  color: string;
+  description: string;
+  subAgents: SubAgent[];
+}
+
+const agentCards: AgentCard[] = [
   {
-    icon: <Layers className="w-8 h-8 text-primary" />,
-    title: "Multi-Agent Architecture",
-    description: "Specialized AI agents work in parallel to analyze different aspects of your website."
+    icon: <Palette className="w-8 h-8" />,
+    title: "Agente de Estética Visual",
+    color: "bg-[#2A3E61]",
+    description: "Especializado en analizar el diseño visual, paleta de colores, tipografía, composición de imágenes y coherencia de marca.",
+    subAgents: [
+      {
+        name: "Sub-agente de Armonía de Color",
+        description: "Analiza paletas, contraste y teoría del color"
+      },
+      {
+        name: "Sub-agente de Evaluación Tipográfica",
+        description: "Evalúa legibilidad, jerarquía y selección de fuentes"
+      },
+      {
+        name: "Sub-agente de Composición Visual",
+        description: "Examina balance, espaciado y alineación"
+      },
+      {
+        name: "Sub-agente de Consistencia de Marca",
+        description: "Verifica coherencia de elementos visuales de marca"
+      }
+    ]
   },
   {
-    icon: <Zap className="w-8 h-8 text-primary" />,
-    title: "Real-Time Analysis",
-    description: "Watch the analysis unfold with live progress updates and agent activity logs."
+    icon: <MousePointer className="w-8 h-8" />,
+    title: "Agente de UX y Navegación",
+    color: "bg-[#59E2DE]",
+    description: "Evalúa la usabilidad, arquitectura de información, patrones de navegación y accesibilidad del sitio.",
+    subAgents: [
+      {
+        name: "Sub-agente de Flujo de Usuario",
+        description: "Mapea recorridos y detecta puntos de fricción"
+      },
+      {
+        name: "Sub-agente de Arquitectura de Información",
+        description: "Evalúa estructura y organización de contenido"
+      },
+      {
+        name: "Sub-agente de Accesibilidad",
+        description: "Verifica cumplimiento WCAG y usabilidad inclusiva"
+      },
+      {
+        name: "Sub-agente de Responsividad Móvil",
+        description: "Prueba adaptación a diferentes dispositivos"
+      }
+    ]
   },
   {
-    icon: <Shield className="w-8 h-8 text-primary" />,
-    title: "Comprehensive Scoring",
-    description: "Get detailed scores across visual design, UX, content quality, and technical performance."
+    icon: <FileText className="w-8 h-8" />,
+    title: "Agente de Contenido y Storytelling",
+    color: "bg-[#2A3E61]",
+    description: "Analiza la claridad del mensaje, voz de marca, engagement emocional y efectividad de calls-to-action.",
+    subAgents: [
+      {
+        name: "Sub-agente de Claridad de Mensaje",
+        description: "Analiza efectividad de comunicación"
+      },
+      {
+        name: "Sub-agente de Voz de Marca",
+        description: "Evalúa tono, personalidad y consistencia"
+      },
+      {
+        name: "Sub-agente de Engagement Emocional",
+        description: "Mide conexión emocional con usuarios"
+      },
+      {
+        name: "Sub-agente de CTAs",
+        description: "Evalúa efectividad de llamadas a la acción"
+      }
+    ]
   },
   {
-    icon: <Clock className="w-8 h-8 text-primary" />,
-    title: "Fast Results",
-    description: "Receive complete benchmarking reports in just 2-5 minutes."
+    icon: <Gauge className="w-8 h-8" />,
+    title: "Agente de Rendimiento Técnico",
+    color: "bg-[#59E2DE]",
+    description: "Mide velocidad de carga, optimización móvil, fundamentos SEO y calidad del código.",
+    subAgents: [
+      {
+        name: "Sub-agente de Velocidad de Página",
+        description: "Mide Core Web Vitals y tiempos de carga"
+      },
+      {
+        name: "Sub-agente de Optimización SEO",
+        description: "Verifica meta tags, estructura y keywords"
+      },
+      {
+        name: "Sub-agente de Meta Tags",
+        description: "Analiza Open Graph, Twitter Cards y meta información"
+      },
+      {
+        name: "Sub-agente de Estructura HTML",
+        description: "Evalúa semántica, accesibilidad y estándares web"
+      }
+    ]
+  }
+];
+
+interface LayerConfig {
+  id: number;
+  name: string;
+  description: string;
+  icon: React.ReactNode;
+}
+
+const layerConfigurations: LayerConfig[] = [
+  {
+    id: 1,
+    name: "Identidad",
+    description: "Personalidad del agente, arquetipo, tono, objetivos",
+    icon: <Users className="w-4 h-4" />
+  },
+  {
+    id: 2,
+    name: "Seguridad",
+    description: "Límites, lineamientos éticos, manejo de datos",
+    icon: <Shield className="w-4 h-4" />
+  },
+  {
+    id: 3,
+    name: "Metodología",
+    description: "Razonamiento, marcos de puntuación, estructura de salida",
+    icon: <Target className="w-4 h-4" />
+  },
+  {
+    id: 4,
+    name: "Conocimiento Estático",
+    description: "Experiencia fundamental, principios, mejores prácticas",
+    icon: <Book className="w-4 h-4" />
+  },
+  {
+    id: 5,
+    name: "Datos Dinámicos",
+    description: "Configuración consciente del contexto, contexto de sesión, conocimiento previo",
+    icon: <Zap className="w-4 h-4" />
+  },
+  {
+    id: 6,
+    name: "Herramientas",
+    description: "Definiciones de sub-agentes, modos de ejecución, manejo de errores",
+    icon: <Layers className="w-4 h-4" />
+  },
+  {
+    id: 7,
+    name: "Orquestación",
+    description: "Colaboración entre agentes, mecanismos de consenso",
+    icon: <Network className="w-4 h-4" />
+  },
+  {
+    id: 8,
+    name: "Metacognición",
+    description: "Auto-conciencia (confianza, detección de sesgos, limitaciones)",
+    icon: <Brain className="w-4 h-4" />
+  },
+  {
+    id: 9,
+    name: "Evolución",
+    description: "Mecanismos de auto-mejora (eventos de aprendizaje, generación de propuestas)",
+    icon: <Lightbulb className="w-4 h-4" />
+  }
+];
+
+const satmaBenefits = [
+  {
+    icon: <Brain className="w-6 h-6" />,
+    title: "Inteligencia Artificial Avanzada",
+    description: "Utilizamos modelos de IA de última generación que aprenden y mejoran continuamente para ofrecer análisis más precisos."
+  },
+  {
+    icon: <Users className="w-6 h-6" />,
+    title: "Diseñado para Equipos Creativos",
+    description: "Creado específicamente para equipos de desarrollo web y diseñadores que buscan crear sitios excepcionales."
+  },
+  {
+    icon: <Lightbulb className="w-6 h-6" />,
+    title: "Insights Accionables",
+    description: "No solo identificamos problemas, sino que proporcionamos recomendaciones claras y priorizadas para mejorar."
+  },
+  {
+    icon: <Award className="w-6 h-6" />,
+    title: "Estándares de la Industria",
+    description: "Todos los análisis están calibrados contra las mejores prácticas y estándares de la industria del diseño web."
   }
 ];
 
@@ -187,24 +372,31 @@ export default function UserGuide() {
     : faqItems.filter(item => item.category === activeCategory);
 
   return (
-    <div className="min-h-screen bg-background bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-secondary via-background to-background px-4 py-6 md:p-12 font-sans">
+    <div className="min-h-screen bg-gradient-to-b from-white via-[#F5F9FC] to-white px-4 py-6 md:p-12 font-sans">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
         className="max-w-5xl mx-auto"
       >
-        <nav className="mb-8" aria-label="Breadcrumb navigation">
-          <WouterLink href="/" aria-label="Return to main dashboard">
+        <nav className="flex items-center justify-between mb-8" aria-label="Navegación">
+          <WouterLink href="/" aria-label="Regresar al dashboard principal">
             <Button 
               variant="ghost" 
-              className="gap-2 text-muted-foreground hover:text-foreground"
+              className="gap-2 text-[#2A3E61]/70 hover:text-[#2A3E61]"
               data-testid="button-back-dashboard"
             >
               <ArrowLeft className="w-4 h-4" />
-              Back to Dashboard
+              Regresar
             </Button>
           </WouterLink>
+          <a href="https://satma.mx" target="_blank" rel="noopener noreferrer">
+            <img 
+              src="https://satma.mx/wp-content/uploads/2023/03/logo-azul-png.png" 
+              alt="SATMA" 
+              className="h-8 object-contain"
+            />
+          </a>
         </nav>
 
         <header className="text-center mb-12" role="banner">
@@ -214,42 +406,279 @@ export default function UserGuide() {
             transition={{ duration: 0.3 }}
             className="inline-flex items-center gap-3 mb-4"
           >
-            <div className="p-3 rounded-xl bg-primary/10 border border-primary/20">
-              <Book className="w-8 h-8 text-primary" />
+            <div className="p-3 rounded-xl bg-[#2A3E61]/10 border border-[#2A3E61]/20">
+              <Book className="w-8 h-8 text-[#2A3E61]" />
             </div>
-            <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-primary to-purple-400 bg-clip-text text-transparent">
-              User Guide
+            <h1 className="text-4xl md:text-5xl font-bold text-[#2A3E61]">
+              Guía de Usuario
             </h1>
           </motion.div>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto" data-testid="text-guide-description">
-            Learn how to use the Web Benchmarking Analyst to compare your website against competitors and get actionable insights.
+          <p className="text-lg text-[#2A3E61]/70 max-w-2xl mx-auto font-paragraph" data-testid="text-guide-description">
+            Aprende cómo funciona SATMA Web Analyst y cómo nuestra tecnología de agentes de IA 
+            ayuda a tu equipo a crear sitios web excepcionales.
           </p>
         </header>
 
-        <Tabs defaultValue="quickstart" className="mb-12">
-          <TabsList className="grid w-full grid-cols-3 mb-8" data-testid="tabs-guide-sections">
-            <TabsTrigger value="quickstart" className="gap-2" data-testid="tab-quickstart">
+        <Tabs defaultValue="platform" className="mb-12">
+          <TabsList className="grid w-full grid-cols-4 mb-8 bg-[#2A3E61]/5" data-testid="tabs-guide-sections">
+            <TabsTrigger value="platform" className="gap-2 data-[state=active]:bg-[#2A3E61] data-[state=active]:text-white" data-testid="tab-platform">
+              <Bot className="w-4 h-4" />
+              <span className="hidden sm:inline">Plataforma</span>
+            </TabsTrigger>
+            <TabsTrigger value="agents" className="gap-2 data-[state=active]:bg-[#2A3E61] data-[state=active]:text-white" data-testid="tab-agents">
+              <Network className="w-4 h-4" />
+              <span className="hidden sm:inline">Agentes</span>
+            </TabsTrigger>
+            <TabsTrigger value="quickstart" className="gap-2 data-[state=active]:bg-[#2A3E61] data-[state=active]:text-white" data-testid="tab-quickstart">
               <Play className="w-4 h-4" />
-              <span className="hidden sm:inline">Quickstart</span>
+              <span className="hidden sm:inline">Tutorial</span>
             </TabsTrigger>
-            <TabsTrigger value="features" className="gap-2" data-testid="tab-features">
-              <Layers className="w-4 h-4" />
-              <span className="hidden sm:inline">Features</span>
-            </TabsTrigger>
-            <TabsTrigger value="faq" className="gap-2" data-testid="tab-faq">
+            <TabsTrigger value="faq" className="gap-2 data-[state=active]:bg-[#2A3E61] data-[state=active]:text-white" data-testid="tab-faq">
               <HelpCircle className="w-4 h-4" />
               <span className="hidden sm:inline">FAQ</span>
             </TabsTrigger>
           </TabsList>
 
+          <TabsContent value="platform">
+            <section aria-labelledby="platform-heading">
+              <h2 id="platform-heading" className="text-2xl font-semibold mb-6 flex items-center gap-2 text-[#2A3E61]">
+                <Bot className="w-6 h-6 text-[#59E2DE]" />
+                ¿Qué es SATMA Web Analyst?
+              </h2>
+              
+              <Card className="mb-8 border-[#59E2DE]/30 bg-gradient-to-r from-[#59E2DE]/5 to-transparent">
+                <CardContent className="pt-6">
+                  <div className="grid md:grid-cols-2 gap-6 items-center">
+                    <div>
+                      <h3 className="text-xl font-semibold mb-4 text-[#2A3E61]">
+                        Inteligencia Artificial al Servicio del Diseño Web
+                      </h3>
+                      <p className="text-[#2A3E61]/70 mb-4 font-paragraph">
+                        SATMA Web Analyst es una plataforma de análisis y benchmarking web impulsada por 
+                        inteligencia artificial multi-agente. Fue desarrollada por <strong>SATMA - Agencia Creativa</strong> para 
+                        ayudar a nuestro equipo de desarrollo a crear las mejores páginas de internet para nuestros clientes.
+                      </p>
+                      <p className="text-[#2A3E61]/70 font-paragraph">
+                        Nuestra tecnología permite comparar cualquier sitio web contra sus competidores, 
+                        identificando fortalezas y áreas de mejora en diseño, experiencia de usuario, 
+                        contenido y rendimiento técnico.
+                      </p>
+                    </div>
+                    <div className="flex justify-center">
+                      <div className="relative">
+                        <div className="absolute inset-0 bg-[#59E2DE]/20 blur-3xl rounded-full"></div>
+                        <img 
+                          src="https://satma.mx/wp-content/uploads/2023/03/logo-azul-png.png" 
+                          alt="SATMA" 
+                          className="relative w-48 h-auto"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <h3 className="text-xl font-semibold mb-6 text-[#2A3E61]">
+                ¿Cómo Ayuda a los Equipos de Desarrollo?
+              </h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+                {satmaBenefits.map((benefit, index) => (
+                  <motion.div
+                    key={benefit.title}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                  >
+                    <Card className="h-full border-[#2A3E61]/10 hover:border-[#59E2DE]/50 transition-colors">
+                      <CardContent className="pt-6">
+                        <div className="flex items-start gap-4">
+                          <div className="p-2 rounded-lg bg-[#59E2DE]/20 text-[#2A3E61]">
+                            {benefit.icon}
+                          </div>
+                          <div>
+                            <h4 className="font-semibold text-[#2A3E61] mb-1">{benefit.title}</h4>
+                            <p className="text-sm text-[#2A3E61]/70 font-paragraph">{benefit.description}</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                ))}
+              </div>
+
+              <Card className="border-[#2A3E61]/20 bg-[#2A3E61]">
+                <CardContent className="pt-6 text-white">
+                  <div className="flex items-start gap-4">
+                    <div className="p-3 rounded-full bg-[#59E2DE]/20">
+                      <Eye className="w-6 h-6 text-[#59E2DE]" />
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-lg mb-2">Nuestra Filosofía</h4>
+                      <p className="text-white/80 font-paragraph">
+                        En SATMA creemos que cada cliente es <strong>ÚNICO</strong>. Por eso desarrollamos 
+                        esta herramienta: para entender profundamente cada proyecto, analizar la competencia, 
+                        y crear soluciones web que no solo sean hermosas, sino que también cumplan objetivos 
+                        de negocio reales. Esta plataforma es el resultado de nuestra experiencia trabajando 
+                        con servicios jurídicos, médicos, asociaciones profesionales y comercializadoras.
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </section>
+          </TabsContent>
+
+          <TabsContent value="agents">
+            <section aria-labelledby="agents-heading">
+              <h2 id="agents-heading" className="text-2xl font-semibold mb-6 flex items-center gap-2 text-[#2A3E61]">
+                <Network className="w-6 h-6 text-[#59E2DE]" />
+                Sistema Multi-Agente de IA
+              </h2>
+              <p className="text-[#2A3E61]/70 mb-8 font-paragraph" data-testid="text-agents-intro">
+                Nuestra plataforma utiliza una arquitectura de agentes especializados que trabajan en paralelo 
+                para analizar diferentes aspectos de cada sitio web. Cada agente tiene sub-agentes dedicados 
+                para análisis más granulares.
+              </p>
+
+              <div className="mb-8">
+                <Card className="border-[#59E2DE]/30 bg-gradient-to-r from-[#59E2DE]/10 to-transparent mb-6">
+                  <CardContent className="pt-6">
+                    <h3 className="text-lg font-semibold mb-4 text-[#2A3E61] flex items-center gap-2">
+                      <Layers className="w-5 h-5" />
+                      Arquitectura Jerárquica
+                    </h3>
+                    <div className="grid md:grid-cols-3 gap-4 text-center">
+                      <div className="p-4 bg-white rounded-lg border border-[#2A3E61]/10">
+                        <div className="w-12 h-12 mx-auto mb-2 rounded-full bg-[#2A3E61] flex items-center justify-center">
+                          <Brain className="w-6 h-6 text-white" />
+                        </div>
+                        <h4 className="font-semibold text-[#2A3E61]">Orquestador</h4>
+                        <p className="text-xs text-[#2A3E61]/60 font-paragraph">Coordina todo el análisis</p>
+                      </div>
+                      <div className="p-4 bg-white rounded-lg border border-[#2A3E61]/10">
+                        <div className="w-12 h-12 mx-auto mb-2 rounded-full bg-[#59E2DE] flex items-center justify-center">
+                          <Bot className="w-6 h-6 text-[#2A3E61]" />
+                        </div>
+                        <h4 className="font-semibold text-[#2A3E61]">4 Agentes Principales</h4>
+                        <p className="text-xs text-[#2A3E61]/60 font-paragraph">Especialistas por área</p>
+                      </div>
+                      <div className="p-4 bg-white rounded-lg border border-[#2A3E61]/10">
+                        <div className="w-12 h-12 mx-auto mb-2 rounded-full bg-[#2A3E61]/20 flex items-center justify-center">
+                          <Zap className="w-6 h-6 text-[#2A3E61]" />
+                        </div>
+                        <h4 className="font-semibold text-[#2A3E61]">16+ Sub-Agentes</h4>
+                        <p className="text-xs text-[#2A3E61]/60 font-paragraph">Análisis granular</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <h3 className="text-xl font-semibold mb-6 text-[#2A3E61]">Agentes Especializados</h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                {agentCards.map((agent, index) => (
+                  <motion.div
+                    key={agent.title}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                  >
+                    <Card className="h-full border-[#2A3E61]/10 hover:border-[#59E2DE]/50 transition-all hover:shadow-lg" data-testid={`card-agent-${index}`}>
+                      <CardContent className="pt-6">
+                        <div className="flex items-start gap-4 mb-4">
+                          <div className={`p-3 rounded-xl ${agent.color} text-white`}>
+                            {agent.icon}
+                          </div>
+                          <div>
+                            <h4 className="font-semibold text-lg text-[#2A3E61]">{agent.title}</h4>
+                            <p className="text-sm text-[#2A3E61]/70 font-paragraph">{agent.description}</p>
+                          </div>
+                        </div>
+                        <div className="pl-4 border-l-2 border-[#59E2DE]/30">
+                          <p className="text-xs font-semibold text-[#2A3E61]/50 uppercase mb-3">Sub-Agentes:</p>
+                          <ul className="space-y-3">
+                            {agent.subAgents.map((subAgent, idx) => (
+                              <li key={idx} className="text-sm font-paragraph">
+                                <div className="flex items-start gap-2">
+                                  <span className="w-2 h-2 rounded-full bg-[#59E2DE] mt-1.5 flex-shrink-0"></span>
+                                  <div>
+                                    <span className="font-medium text-[#2A3E61]">{subAgent.name}</span>
+                                    <p className="text-xs text-[#2A3E61]/60 mt-0.5">{subAgent.description}</p>
+                                  </div>
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                ))}
+              </div>
+
+              <Card className="border-[#2A3E61]/20 bg-gradient-to-br from-white to-[#F5F9FC]">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-[#2A3E61]">
+                    <Shield className="w-5 h-5 text-[#59E2DE]" />
+                    Configuración Avanzada de 9 Capas
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-[#2A3E61]/70 mb-6 font-paragraph">
+                    Cada agente está configurado con un sistema sofisticado de 9 capas que define su comportamiento, 
+                    conocimiento y capacidad de evolución:
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {layerConfigurations.map((layer) => (
+                      <motion.div 
+                        key={layer.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: layer.id * 0.05 }}
+                        className="group p-4 bg-white rounded-lg border border-[#2A3E61]/10 hover:border-[#59E2DE]/50 hover:shadow-md transition-all"
+                        data-testid={`layer-config-${layer.id}`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-[#2A3E61] to-[#59E2DE] text-white flex items-center justify-center font-mono text-sm font-bold shadow-sm">
+                            {layer.id}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-[#59E2DE]">{layer.icon}</span>
+                              <h5 className="font-semibold text-[#2A3E61] text-sm">{layer.name}</h5>
+                            </div>
+                            <p className="text-xs text-[#2A3E61]/60 font-paragraph leading-relaxed">
+                              {layer.description}
+                            </p>
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                  <div className="mt-6 p-4 bg-[#2A3E61]/5 rounded-lg border border-[#2A3E61]/10">
+                    <p className="text-xs text-[#2A3E61]/70 font-paragraph flex items-start gap-2">
+                      <Lightbulb className="w-4 h-4 text-[#59E2DE] flex-shrink-0 mt-0.5" />
+                      <span>
+                        Esta arquitectura de 9 capas permite que cada agente sea altamente especializado, 
+                        seguro y capaz de aprender de cada análisis para mejorar continuamente sus resultados.
+                      </span>
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </section>
+          </TabsContent>
+
           <TabsContent value="quickstart">
             <section aria-labelledby="quickstart-heading">
-              <h2 id="quickstart-heading" className="text-2xl font-semibold mb-6 flex items-center gap-2">
-                <Zap className="w-6 h-6 text-primary" />
-                Quickstart Tutorial
+              <h2 id="quickstart-heading" className="text-2xl font-semibold mb-6 flex items-center gap-2 text-[#2A3E61]">
+                <Zap className="w-6 h-6 text-[#59E2DE]" />
+                Tutorial Rápido
               </h2>
-              <p className="text-muted-foreground mb-8" data-testid="text-quickstart-intro">
-                Follow these simple steps to run your first website benchmarking analysis.
+              <p className="text-[#2A3E61]/70 mb-8 font-paragraph" data-testid="text-quickstart-intro">
+                Sigue estos simples pasos para ejecutar tu primer análisis de benchmarking web.
               </p>
 
               <div className="space-y-4">
@@ -261,10 +690,10 @@ export default function UserGuide() {
                     transition={{ delay: index * 0.1 }}
                   >
                     <Card 
-                      className={`cursor-pointer transition-all duration-300 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:outline-none ${
+                      className={`cursor-pointer transition-all duration-300 focus-visible:ring-2 focus-visible:ring-[#2A3E61] focus-visible:ring-offset-2 focus-visible:outline-none border-[#2A3E61]/10 ${
                         expandedStep === step.id 
-                          ? "border-primary/50 bg-primary/5" 
-                          : "hover:border-primary/30"
+                          ? "border-[#59E2DE]/50 bg-[#59E2DE]/5" 
+                          : "hover:border-[#59E2DE]/30"
                       }`}
                       onClick={() => setExpandedStep(expandedStep === step.id ? null : step.id)}
                       onKeyDown={(e) => {
@@ -276,24 +705,24 @@ export default function UserGuide() {
                       role="button"
                       tabIndex={0}
                       aria-expanded={expandedStep === step.id}
-                      aria-label={`Step ${step.id}: ${step.title}. ${expandedStep === step.id ? 'Press to collapse' : 'Press to expand'}`}
+                      aria-label={`Paso ${step.id}: ${step.title}. ${expandedStep === step.id ? 'Presiona para colapsar' : 'Presiona para expandir'}`}
                       data-testid={`card-step-${step.id}`}
                     >
                       <CardHeader className="pb-2">
                         <div className="flex items-center gap-4">
                           <div className={`flex items-center justify-center w-12 h-12 rounded-full ${
                             expandedStep === step.id 
-                              ? "bg-primary text-primary-foreground" 
-                              : "bg-primary/10 text-primary"
+                              ? "bg-[#2A3E61] text-white" 
+                              : "bg-[#59E2DE]/20 text-[#2A3E61]"
                           }`}>
                             <span className="font-bold text-lg">{step.id}</span>
                           </div>
                           <div className="flex-1">
-                            <CardTitle className="text-lg flex items-center gap-2">
-                              {step.icon}
+                            <CardTitle className="text-lg flex items-center gap-2 text-[#2A3E61]">
+                              <span className="text-[#59E2DE]">{step.icon}</span>
                               {step.title}
                             </CardTitle>
-                            <p className="text-sm text-muted-foreground mt-1">
+                            <p className="text-sm text-[#2A3E61]/70 mt-1 font-paragraph">
                               {step.description}
                             </p>
                           </div>
@@ -301,7 +730,7 @@ export default function UserGuide() {
                             animate={{ rotate: expandedStep === step.id ? 90 : 0 }}
                             transition={{ duration: 0.2 }}
                           >
-                            <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                            <ChevronRight className="w-5 h-5 text-[#2A3E61]/50" />
                           </motion.div>
                         </div>
                       </CardHeader>
@@ -313,12 +742,12 @@ export default function UserGuide() {
                             exit={{ height: 0, opacity: 0 }}
                             transition={{ duration: 0.3 }}
                           >
-                            <CardContent className="pt-4 border-t border-border/50">
+                            <CardContent className="pt-4 border-t border-[#2A3E61]/10">
                               <ul className="space-y-2">
                                 {step.details.map((detail, idx) => (
-                                  <li key={idx} className="flex items-start gap-2 text-sm">
-                                    <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-                                    <span>{detail}</span>
+                                  <li key={idx} className="flex items-start gap-2 text-sm font-paragraph">
+                                    <CheckCircle className="w-4 h-4 text-[#59E2DE] mt-0.5 flex-shrink-0" />
+                                    <span className="text-[#2A3E61]/70">{detail}</span>
                                   </li>
                                 ))}
                               </ul>
@@ -333,100 +762,20 @@ export default function UserGuide() {
 
               <div className="mt-8 text-center">
                 <WouterLink href="/">
-                  <Button size="lg" className="gap-2" data-testid="button-start-analysis">
+                  <Button size="lg" className="gap-2 bg-[#2A3E61] hover:bg-[#2A3E61]/90" data-testid="button-start-analysis">
                     <Play className="w-5 h-5" />
-                    Start Your First Analysis
+                    Iniciar Tu Primer Análisis
                   </Button>
                 </WouterLink>
               </div>
             </section>
           </TabsContent>
 
-          <TabsContent value="features">
-            <section aria-labelledby="features-heading">
-              <h2 id="features-heading" className="text-2xl font-semibold mb-6 flex items-center gap-2">
-                <Layers className="w-6 h-6 text-primary" />
-                Key Features
-              </h2>
-              <p className="text-muted-foreground mb-8" data-testid="text-features-intro">
-                Discover what makes our Web Benchmarking Analyst unique.
-              </p>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {featureCards.map((feature, index) => (
-                  <motion.div
-                    key={feature.title}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                  >
-                    <Card className="h-full hover:border-primary/30 transition-colors" data-testid={`card-feature-${index}`}>
-                      <CardContent className="pt-6">
-                        <div className="mb-4">{feature.icon}</div>
-                        <h3 className="text-lg font-semibold mb-2">{feature.title}</h3>
-                        <p className="text-muted-foreground text-sm">{feature.description}</p>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                ))}
-              </div>
-
-              <Card className="mt-8 border-primary/30 bg-primary/5" data-testid="card-analysis-areas">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <FileText className="w-5 h-5" />
-                    What We Analyze
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <h4 className="font-medium flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-blue-500" />
-                        Visual Aesthetics
-                      </h4>
-                      <p className="text-sm text-muted-foreground pl-4">
-                        Color harmony, typography, imagery, layout composition, and brand consistency.
-                      </p>
-                    </div>
-                    <div className="space-y-2">
-                      <h4 className="font-medium flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-green-500" />
-                        UX & Navigation
-                      </h4>
-                      <p className="text-sm text-muted-foreground pl-4">
-                        Usability, information architecture, accessibility, and user flow design.
-                      </p>
-                    </div>
-                    <div className="space-y-2">
-                      <h4 className="font-medium flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-purple-500" />
-                        Content & Storytelling
-                      </h4>
-                      <p className="text-sm text-muted-foreground pl-4">
-                        Message clarity, brand voice, emotional engagement, and call-to-action effectiveness.
-                      </p>
-                    </div>
-                    <div className="space-y-2">
-                      <h4 className="font-medium flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-orange-500" />
-                        Technical Performance
-                      </h4>
-                      <p className="text-sm text-muted-foreground pl-4">
-                        Page load speed, mobile responsiveness, SEO fundamentals, and code quality.
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </section>
-          </TabsContent>
-
           <TabsContent value="faq">
             <section aria-labelledby="faq-heading">
-              <h2 id="faq-heading" className="text-2xl font-semibold mb-6 flex items-center gap-2">
-                <HelpCircle className="w-6 h-6 text-primary" />
-                Frequently Asked Questions
+              <h2 id="faq-heading" className="text-2xl font-semibold mb-6 flex items-center gap-2 text-[#2A3E61]">
+                <HelpCircle className="w-6 h-6 text-[#59E2DE]" />
+                Preguntas Frecuentes
               </h2>
 
               <div className="flex flex-wrap gap-2 mb-6">
@@ -436,10 +785,10 @@ export default function UserGuide() {
                     variant={activeCategory === category ? "default" : "outline"}
                     size="sm"
                     onClick={() => setActiveCategory(category)}
-                    className="capitalize"
+                    className={`capitalize ${activeCategory === category ? 'bg-[#2A3E61] text-white' : 'border-[#2A3E61]/30 text-[#2A3E61]'}`}
                     data-testid={`button-faq-category-${category.replace(/\s+/g, '-').toLowerCase()}`}
                   >
-                    {category === "all" ? "All Questions" : category}
+                    {category === "all" ? "Todas las Preguntas" : category}
                   </Button>
                 ))}
               </div>
@@ -449,18 +798,18 @@ export default function UserGuide() {
                   <AccordionItem 
                     key={index} 
                     value={`faq-${index}`}
-                    className="border rounded-lg px-4 data-[state=open]:border-primary/50 data-[state=open]:bg-primary/5"
+                    className="border rounded-lg px-4 border-[#2A3E61]/10 data-[state=open]:border-[#59E2DE]/50 data-[state=open]:bg-[#59E2DE]/5"
                     data-testid={`accordion-item-faq-${index}`}
                   >
                     <AccordionTrigger className="text-left hover:no-underline py-4">
                       <div className="flex items-start gap-3">
-                        <HelpCircle className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
-                        <span className="font-medium">{faq.question}</span>
+                        <HelpCircle className="w-5 h-5 text-[#59E2DE] mt-0.5 flex-shrink-0" />
+                        <span className="font-medium text-[#2A3E61]">{faq.question}</span>
                       </div>
                     </AccordionTrigger>
                     <AccordionContent className="pb-4 pl-8">
-                      <p className="text-muted-foreground">{faq.answer}</p>
-                      <span className="inline-block mt-2 text-xs px-2 py-1 rounded-full bg-secondary text-secondary-foreground">
+                      <p className="text-[#2A3E61]/70 font-paragraph">{faq.answer}</p>
+                      <span className="inline-block mt-2 text-xs px-2 py-1 rounded-full bg-[#2A3E61]/10 text-[#2A3E61]">
                         {faq.category}
                       </span>
                     </AccordionContent>
@@ -471,26 +820,43 @@ export default function UserGuide() {
           </TabsContent>
         </Tabs>
 
-        <footer className="text-center pt-8 border-t border-border/50">
-          <p className="text-muted-foreground text-sm mb-4" data-testid="text-help-prompt">
-            Still have questions? Check the{" "}
+        <footer className="text-center pt-8 border-t border-[#2A3E61]/10">
+          <p className="text-[#2A3E61]/60 text-sm mb-4 font-paragraph" data-testid="text-help-prompt">
+            ¿Tienes más preguntas? Consulta la{" "}
             <a 
               href="/api/docs" 
               target="_blank" 
               rel="noopener noreferrer"
-              className="text-primary hover:underline"
+              className="text-[#2A3E61] hover:text-[#59E2DE] transition-colors"
               data-testid="link-api-docs"
             >
-              API Documentation
+              Documentación de API
             </a>
-            {" "}for technical details.
+            {" "}para detalles técnicos o contáctanos en{" "}
+            <a 
+              href="mailto:santiago@satma.mx"
+              className="text-[#2A3E61] hover:text-[#59E2DE] transition-colors"
+            >
+              santiago@satma.mx
+            </a>
           </p>
-          <WouterLink href="/">
-            <Button variant="outline" className="gap-2" data-testid="button-footer-dashboard">
-              <ArrowLeft className="w-4 h-4" />
-              Return to Dashboard
-            </Button>
-          </WouterLink>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <WouterLink href="/">
+              <Button variant="outline" className="gap-2 border-[#2A3E61] text-[#2A3E61] hover:bg-[#2A3E61] hover:text-white" data-testid="button-footer-dashboard">
+                <ArrowLeft className="w-4 h-4" />
+                Regresar al Dashboard
+              </Button>
+            </WouterLink>
+            <a href="https://satma.mx" target="_blank" rel="noopener noreferrer">
+              <Button className="gap-2 bg-[#2A3E61] hover:bg-[#2A3E61]/90">
+                <Globe className="w-4 h-4" />
+                Visitar SATMA
+              </Button>
+            </a>
+          </div>
+          <p className="text-xs text-[#2A3E61]/40 mt-6 font-paragraph">
+            © 2025 SATMA - Agencia Creativa | Monterrey, Nuevo León, México | +52 (81) 2474 9049
+          </p>
         </footer>
       </motion.div>
     </div>

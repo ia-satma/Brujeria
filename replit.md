@@ -1,18 +1,30 @@
-# Web Benchmarking Analyst Agent
+# SATMA Web Analyst
 
 ## Overview
 
 This project is an autonomous AI-powered web benchmarking tool designed to analyze and compare website design, user experience, content quality, and technical performance. It accepts multiple URLs (a client website and competitor websites), performs comprehensive analysis through specialized AI agents, and generates detailed comparative reports with actionable recommendations. The system uses a distributed, hierarchical multi-agent architecture where specialized AI agents work in parallel to evaluate different aspects of websites, providing granular insights across visual design, UX/navigation, content storytelling, and technical performance. The goal is to provide deep, actionable insights into web presence performance and competitive positioning.
 
+**Branded by SATMA - Agencia Creativa** (https://satma.mx) to help their development team create the best websites for their clients across legal services, medical services, professional associations, and commercial industries.
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
+Language: Spanish (all UI content is in Spanish)
 
 ## System Architecture
 
 ### Frontend Architecture
 
-The frontend is built with React 18 and TypeScript, using Vite for development and optimized builds. Styling is handled by Tailwind CSS with a custom "new-york" shadcn/ui theme, incorporating a comprehensive shadcn/ui component library. State management uses React Hook Form and TanStack Query. Framer Motion provides smooth animations, and Recharts is used for data visualization. The design system features a custom dark theme with a cyberpunk/terminal aesthetic, custom fonts (Inter, Space Grotesk, JetBrains Mono), and a responsive, mobile-first approach. Key features include real-time agent execution visualization, live terminal-style logging, interactive report generation, and multi-URL input forms.
+The frontend is built with React 18 and TypeScript, using Vite for development and optimized builds. Styling is handled by Tailwind CSS with a custom shadcn/ui theme incorporating SATMA branding. State management uses React Hook Form and TanStack Query. Framer Motion provides smooth animations, and Recharts is used for data visualization.
+
+**SATMA Branding:**
+- Primary Color: #2A3E61 (dark blue)
+- Accent Color: #59E2DE (cyan/teal)
+- Color Scheme: Light theme with white background
+- Fonts: Montserrat (headings), Raleway (paragraphs), JetBrains Mono (monospace)
+- Logo: https://satma.mx/wp-content/uploads/2023/03/logo-azul-png.png
+
+Key features include real-time agent execution visualization, live terminal-style logging, interactive report generation, multi-URL input forms, and comprehensive user guide explaining the multi-agent architecture.
 
 ### Backend Architecture
 
