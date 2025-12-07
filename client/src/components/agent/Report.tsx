@@ -38,45 +38,49 @@ export function ReportView({ report, reportId }: ReportViewProps) {
       className="w-full max-w-7xl mx-auto space-y-8 pb-20"
     >
       {/* Header Section */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-6 border-b border-border">
-        <div>
-          <div className="flex items-center gap-2 mb-2">
-            <Badge variant="outline" className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20">
-              Análisis Completado
-            </Badge>
-            <span className="text-xs text-muted-foreground font-mono">{new Date().toISOString()}</span>
-          </div>
-          <h1 className="text-3xl font-display font-bold text-foreground">{report.report_title}</h1>
-          <p className="text-muted-foreground mt-1">Benchmarking integral para <span className="text-primary font-medium">{report.client_website_analysis.name}</span></p>
-        </div>
-        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
-          <div className="text-right">
-            <p className="text-sm text-muted-foreground">Puntuación General</p>
-            <p className="text-3xl font-mono font-bold text-primary">{report.client_website_analysis.overall_score}/10</p>
-          </div>
-          {reportId && (
-            <div className="flex flex-wrap gap-2">
-              <Button asChild className="shadow-lg" data-testid="button-download-pdf">
-                <a href={`/api/reports/${reportId}/pdf`} download>
-                  <Download className="w-4 h-4 mr-2" />
-                  PDF
-                </a>
-              </Button>
-              <Button asChild variant="outline" data-testid="button-download-json">
-                <a href={`/api/reports/${reportId}/json`} download>
-                  <FileJson className="w-4 h-4 mr-2" />
-                  JSON
-                </a>
-              </Button>
-              <Button asChild variant="secondary" className="bg-accent/20 hover:bg-accent/30 text-accent-foreground" data-testid="button-download-instructions">
-                <a href={`/api/reports/${reportId}/instructions`} download>
-                  <FileCode className="w-4 h-4 mr-2" />
-                  Instrucciones Replit
-                </a>
-              </Button>
+      <div className="flex flex-col gap-4 pb-6 border-b border-border">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
+              <Badge variant="outline" className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20">
+                Análisis Completado
+              </Badge>
+              <span className="text-xs text-muted-foreground font-mono">{new Date().toISOString()}</span>
             </div>
-          )}
+            <h1 className="text-2xl md:text-3xl font-display font-bold text-foreground">{report.report_title}</h1>
+            <p className="text-muted-foreground mt-1 text-sm md:text-base">Benchmarking integral para <span className="text-primary font-medium">{report.client_website_analysis.name}</span></p>
+          </div>
+          <div className="flex flex-row gap-4 items-center">
+            <div className="text-left md:text-right">
+              <p className="text-sm text-muted-foreground">Puntuación General</p>
+              <p className="text-3xl font-mono font-bold text-primary">{report.client_website_analysis.overall_score}/10</p>
+            </div>
+          </div>
         </div>
+        
+        {/* Download Buttons - Always visible on mobile */}
+        {reportId && (
+          <div className="flex flex-wrap gap-2 w-full">
+            <Button asChild className="shadow-lg flex-1 min-w-[100px] sm:flex-none" data-testid="button-download-pdf">
+              <a href={`/api/reports/${reportId}/pdf`} download>
+                <Download className="w-4 h-4 mr-2" />
+                PDF
+              </a>
+            </Button>
+            <Button asChild variant="outline" className="flex-1 min-w-[100px] sm:flex-none" data-testid="button-download-json">
+              <a href={`/api/reports/${reportId}/json`} download>
+                <FileJson className="w-4 h-4 mr-2" />
+                JSON
+              </a>
+            </Button>
+            <Button asChild variant="secondary" className="bg-accent/20 hover:bg-accent/30 text-accent-foreground flex-1 min-w-[140px] sm:flex-none" data-testid="button-download-instructions">
+              <a href={`/api/reports/${reportId}/instructions`} download>
+                <FileCode className="w-4 h-4 mr-2" />
+                Instrucciones Replit
+              </a>
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Main Content Tabs */}
