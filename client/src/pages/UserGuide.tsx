@@ -414,7 +414,7 @@ export default function UserGuide() {
             </h1>
           </motion.div>
           <p className="text-lg text-[#2A3E61]/70 max-w-2xl mx-auto font-paragraph" data-testid="text-guide-description">
-            Aprende cómo funciona SATMA Web Analyst y cómo nuestra tecnología de agentes de IA 
+            Aprende cómo funciona Brujer.ia y cómo nuestra tecnología de agentes de IA 
             ayuda a tu equipo a crear sitios web excepcionales.
           </p>
         </header>
@@ -443,7 +443,7 @@ export default function UserGuide() {
             <section aria-labelledby="platform-heading">
               <h2 id="platform-heading" className="text-2xl font-semibold mb-6 flex items-center gap-2 text-[#2A3E61]">
                 <Bot className="w-6 h-6 text-[#59E2DE]" />
-                ¿Qué es SATMA Web Analyst?
+                ¿Qué es Brujer.ia?
               </h2>
               
               <Card className="mb-8 border-[#59E2DE]/30 bg-gradient-to-r from-[#59E2DE]/5 to-transparent">
@@ -454,7 +454,7 @@ export default function UserGuide() {
                         Inteligencia Artificial al Servicio del Diseño Web
                       </h3>
                       <p className="text-[#2A3E61]/70 mb-4 font-paragraph">
-                        SATMA Web Analyst es una plataforma de análisis y benchmarking web impulsada por 
+                        Brujer.ia es una plataforma de análisis y benchmarking web impulsada por 
                         inteligencia artificial multi-agente. Fue desarrollada por <strong>SATMA - Agencia Creativa</strong> para 
                         ayudar a nuestro equipo de desarrollo a crear las mejores páginas de internet para nuestros clientes.
                       </p>

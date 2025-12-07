@@ -1,4 +1,4 @@
-# SATMA Web Analyst
+# Brujer.ia
 
 ## Overview
 

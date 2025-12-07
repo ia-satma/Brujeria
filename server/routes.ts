@@ -158,7 +158,7 @@ function generateReplitInstructions(report: Report): string {
   md += `3. Pega directamente en el chat de Replit Agent\n`;
   md += `4. Sigue el orden de ejecución recomendado\n`;
   md += `5. Verifica cada fase con los criterios de finalización\n\n`;
-  md += `*Generado por SATMA Web Analyst - https://satma.mx*\n`;
+  md += `*Generado por Brujer.ia - https://satma.mx*\n`;
   
   return md;
 }
