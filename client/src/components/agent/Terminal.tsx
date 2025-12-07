@@ -18,10 +18,19 @@ export function TerminalLog({ logs, isProcessing }: TerminalLogProps) {
     }
   }, [logs]);
 
-  // Helper to determine log color/style based on Agent
+  // Helper to determine log color/style based on Agent and status
   const getLogStyle = (log: string) => {
-    if (log.includes("[ERROR]")) return "text-red-400";
-    if (log.includes("[COMPLETE]")) return "text-emerald-400 font-bold";
+    if (log.includes("[ERROR]")) return "text-red-400 bg-red-500/10 rounded px-1";
+    if (log.includes("[COMPLETE]")) return "text-emerald-400 font-bold bg-emerald-500/10 rounded px-1";
+    
+    // Scraping status indicators
+    if (log.includes("⚠ Skipped") || log.includes("timeout:") || log.includes("failed:")) {
+      return "text-amber-400 bg-amber-500/10 rounded px-1";
+    }
+    if (log.includes("✓ Scraped")) return "text-emerald-400";
+    if (log.includes("═══")) return "text-cyan-300 font-medium"; // Summary dividers
+    if (log.includes("Scraping complete:")) return "text-cyan-300 font-bold";
+    if (log.includes("Failed:") || log.includes("Timed out:")) return "text-amber-400";
     
     // Orchestrator
     if (log.includes("[Benchmarking_Manager]")) return "text-white font-medium";

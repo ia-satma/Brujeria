@@ -22,6 +22,7 @@ import {
   executeSubagentWithFallback,
   getResilienceStats,
   clearResilienceCache,
+  CircuitBreakerOpenError,
   type CircuitBreakerSnapshot,
   type ResilienceStats,
 } from "./resilience";
@@ -357,50 +358,223 @@ function extractPageContent(html: string, path: string): PageContent {
   };
 }
 
+interface ScrapingProgress {
+  path: string;
+  status: 'success' | 'failed' | 'skipped' | 'timeout';
+  reason?: string;
+  index: number;
+  total: number;
+}
+
+const SCRAPING_CONFIG = {
+  concurrency: 3,
+  timeoutMs: 12000,
+  maxRetries: 2,
+  retryDelayMs: 1000,
+  circuitBreakerThreshold: 3,
+};
+
+async function fetchPageWithResilience(
+  url: string,
+  path: string,
+  domain: string,
+  log?: LogCallback
+): Promise<{ html: string } | { error: string; errorType: 'timeout' | 'http' | 'blocked' | 'network' }> {
+  try {
+    const domainCircuitBreaker = getCircuitBreaker(`scraping:${domain}`, {
+      failureThreshold: SCRAPING_CONFIG.circuitBreakerThreshold,
+      successThreshold: 2,
+      timeout: 30000,
+      halfOpenMaxCalls: 2,
+    });
+
+    try {
+      return await domainCircuitBreaker.execute(async () => {
+        const retryResult = await retryWithBackoff(
+          async () => {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), SCRAPING_CONFIG.timeoutMs);
+
+            try {
+              const response = await fetch(url, {
+                headers: {
+                  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                  'Accept-Language': 'en-US,en;q=0.5',
+                  'Accept-Encoding': 'gzip, deflate, br',
+                  'Connection': 'keep-alive',
+                  'Cache-Control': 'no-cache',
+                },
+                signal: controller.signal,
+              });
+
+              clearTimeout(timeoutId);
+
+              if (response.status === 403 || response.status === 401) {
+                throw new Error(`BLOCKED:${response.status}`);
+              }
+
+              if (!response.ok) {
+                throw new Error(`HTTP:${response.status}`);
+              }
+
+              const html = await response.text();
+              return { html };
+            } catch (error) {
+              clearTimeout(timeoutId);
+              throw error;
+            }
+          },
+          {
+            maxAttempts: SCRAPING_CONFIG.maxRetries,
+            baseDelayMs: SCRAPING_CONFIG.retryDelayMs,
+            maxDelayMs: 5000,
+            backoffMultiplier: 1.5,
+            jitterFactor: 0.2,
+          },
+          (msg) => log?.(`[Multi_Page_Scraper] ${path}: ${msg}`)
+        );
+
+        if (retryResult.success && retryResult.result) {
+          return retryResult.result;
+        }
+
+        const errorMsg = retryResult.error?.message || 'Unknown error';
+        if (errorMsg.includes('aborted') || errorMsg.includes('abort') || errorMsg.includes('AbortError')) {
+          return { error: `Timeout after ${SCRAPING_CONFIG.timeoutMs}ms`, errorType: 'timeout' as const };
+        }
+        if (errorMsg.includes('BLOCKED')) {
+          return { error: `Access blocked (${errorMsg.split(':')[1]})`, errorType: 'blocked' as const };
+        }
+        if (errorMsg.includes('HTTP')) {
+          return { error: `HTTP error ${errorMsg.split(':')[1]}`, errorType: 'http' as const };
+        }
+        return { error: errorMsg, errorType: 'network' as const };
+      });
+    } catch (circuitError) {
+      if (circuitError instanceof CircuitBreakerOpenError) {
+        return { error: 'Domain temporarily blocked (too many failures)', errorType: 'blocked' as const };
+      }
+      const errorMsg = (circuitError as Error).message || 'Unknown error';
+      const errorName = (circuitError as Error).name || '';
+      if (errorMsg.includes('aborted') || errorMsg.includes('abort') || errorName === 'AbortError' || errorMsg.includes('AbortError')) {
+        return { error: `Timeout after ${SCRAPING_CONFIG.timeoutMs}ms`, errorType: 'timeout' as const };
+      }
+      if (errorMsg.includes('BLOCKED')) {
+        return { error: `Access blocked`, errorType: 'blocked' as const };
+      }
+      return { error: errorMsg, errorType: 'network' as const };
+    }
+  } catch (outerError) {
+    const errorMsg = (outerError as Error).message || 'Unknown error';
+    const errorName = (outerError as Error).name || '';
+    if (errorMsg.includes('aborted') || errorMsg.includes('abort') || errorName === 'AbortError' || errorMsg.includes('AbortError')) {
+      return { error: `Timeout after ${SCRAPING_CONFIG.timeoutMs}ms`, errorType: 'timeout' as const };
+    }
+    if (errorMsg.includes('BLOCKED')) {
+      return { error: `Access blocked`, errorType: 'blocked' as const };
+    }
+    return { error: errorMsg || 'Unknown error occurred', errorType: 'network' as const };
+  }
+}
+
 async function scrapeMultiplePages(baseUrl: string, log?: LogCallback): Promise<PageContent[]> {
-  log?.(`[Scraping_Orchestrator] > [Multi_Page_Scraper] Starting multi-page scraping for ${baseUrl}`);
+  log?.(`[Scraping_Orchestrator] > [Multi_Page_Scraper] Starting resilient multi-page scraping for ${baseUrl}`);
+  log?.(`[Scraping_Orchestrator] > [Multi_Page_Scraper] Config: concurrency=${SCRAPING_CONFIG.concurrency}, timeout=${SCRAPING_CONFIG.timeoutMs}ms, retries=${SCRAPING_CONFIG.maxRetries}`);
   
   const parsedUrl = new URL(baseUrl);
   const origin = parsedUrl.origin;
+  const domain = parsedUrl.hostname;
   const pages: PageContent[] = [];
   const totalPaths = MULTI_PAGE_PATHS.length;
+  const progress: ScrapingProgress[] = [];
   
-  for (let i = 0; i < MULTI_PAGE_PATHS.length; i++) {
-    const path = MULTI_PAGE_PATHS[i];
+  async function scrapeSinglePage(path: string, index: number): Promise<PageContent | null> {
     const fullUrl = `${origin}${path}`;
+    const startTime = Date.now();
     
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000);
+      log?.(`[Scraping_Orchestrator] > [Multi_Page_Scraper] Fetching ${path} (${index + 1}/${totalPaths})...`);
       
-      const response = await fetch(fullUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; WebBenchmarkBot/1.0)',
-        },
-        signal: controller.signal,
-      });
+      const result = await fetchPageWithResilience(fullUrl, path, domain, log);
+      const elapsed = Date.now() - startTime;
       
-      clearTimeout(timeoutId);
-      
-      if (!response.ok) {
-        continue;
+      if ('error' in result) {
+        const progressItem: ScrapingProgress = {
+          path,
+          status: result.errorType === 'timeout' ? 'timeout' : 'failed',
+          reason: result.error,
+          index: index + 1,
+          total: totalPaths,
+        };
+        progress.push(progressItem);
+        
+        log?.(`[Scraping_Orchestrator] > [Multi_Page_Scraper] ⚠ Skipped ${path} (${progressItem.status}: ${result.error}) [${elapsed}ms]`);
+        return null;
       }
       
-      const html = await response.text();
-      const pageContent = extractPageContent(html, path);
-      pages.push(pageContent);
+      const pageContent = extractPageContent(result.html, path);
       
-      log?.(`[Scraping_Orchestrator] > [Multi_Page_Scraper] Scraped ${path} (${pages.length}/${totalPaths})`);
+      progress.push({
+        path,
+        status: 'success',
+        index: index + 1,
+        total: totalPaths,
+      });
       
-    } catch (error) {
-    }
-    
-    if (i < MULTI_PAGE_PATHS.length - 1) {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      log?.(`[Scraping_Orchestrator] > [Multi_Page_Scraper] ✓ Scraped ${path} (${progress.filter(p => p.status === 'success').length}/${totalPaths}) [${elapsed}ms]`);
+      
+      return pageContent;
+    } catch (unexpectedError) {
+      const elapsed = Date.now() - startTime;
+      const errorMsg = (unexpectedError as Error).message || 'Unexpected error';
+      
+      progress.push({
+        path,
+        status: 'failed',
+        reason: errorMsg,
+        index: index + 1,
+        total: totalPaths,
+      });
+      
+      log?.(`[Scraping_Orchestrator] > [Multi_Page_Scraper] ⚠ Skipped ${path} (failed: ${errorMsg}) [${elapsed}ms]`);
+      return null;
     }
   }
   
-  log?.(`[Scraping_Orchestrator] > [Multi_Page_Scraper] Completed: ${pages.length} pages scraped`);
+  const pathsWithIndex = MULTI_PAGE_PATHS.map((path, i) => ({ path, index: i }));
+  
+  for (let i = 0; i < pathsWithIndex.length; i += SCRAPING_CONFIG.concurrency) {
+    const batch = pathsWithIndex.slice(i, i + SCRAPING_CONFIG.concurrency);
+    
+    if (batch.length > 1) {
+      log?.(`[Scraping_Orchestrator] > [Multi_Page_Scraper] Processing batch ${Math.floor(i / SCRAPING_CONFIG.concurrency) + 1}: ${batch.map(b => b.path).join(', ')}`);
+    }
+    
+    const batchResults = await Promise.all(
+      batch.map(({ path, index }) => scrapeSinglePage(path, index))
+    );
+    
+    for (const result of batchResults) {
+      if (result) {
+        pages.push(result);
+      }
+    }
+    
+    if (i + SCRAPING_CONFIG.concurrency < pathsWithIndex.length) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+  }
+  
+  const successful = progress.filter(p => p.status === 'success').length;
+  const failed = progress.filter(p => p.status === 'failed').length;
+  const timedOut = progress.filter(p => p.status === 'timeout').length;
+  
+  log?.(`[Scraping_Orchestrator] > [Multi_Page_Scraper] ═══════════════════════════════════════`);
+  log?.(`[Scraping_Orchestrator] > [Multi_Page_Scraper] Scraping complete: ${successful}/${totalPaths} pages successful`);
+  if (failed > 0) log?.(`[Scraping_Orchestrator] > [Multi_Page_Scraper] Failed: ${failed} pages`);
+  if (timedOut > 0) log?.(`[Scraping_Orchestrator] > [Multi_Page_Scraper] Timed out: ${timedOut} pages`);
+  log?.(`[Scraping_Orchestrator] > [Multi_Page_Scraper] ═══════════════════════════════════════`);
   
   return pages;
 }

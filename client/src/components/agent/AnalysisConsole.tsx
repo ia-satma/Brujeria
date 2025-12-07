@@ -218,6 +218,15 @@ function AgentActivityFeed({ logs }: { logs: string[] }) {
   const getLogStyle = (log: string) => {
     if (log.includes("[ERROR]")) return "text-red-400 bg-red-500/10 border-red-500/20";
     if (log.includes("[COMPLETE]")) return "text-emerald-400 bg-emerald-500/10 border-emerald-500/20";
+    
+    // Scraping status indicators
+    if (log.includes("⚠ Skipped") || log.includes("timeout:") || log.includes("failed:")) {
+      return "text-amber-400 bg-amber-500/15 border-amber-500/30";
+    }
+    if (log.includes("✓ Scraped")) return "text-emerald-400 bg-emerald-500/10 border-emerald-500/20";
+    if (log.includes("═══") || log.includes("Scraping complete:")) return "text-cyan-300 bg-cyan-500/10 border-cyan-500/20 font-medium";
+    if (log.includes("Failed:") || log.includes("Timed out:")) return "text-amber-400 bg-amber-500/10 border-amber-500/20";
+    
     if (log.includes("[Benchmarking_Manager]")) return "text-white bg-white/5 border-white/10";
     if (log.includes("[Scraping_Orchestrator]")) return "text-amber-300 bg-amber-500/10 border-amber-500/20";
     if (log.includes("[Visual_Aesthetics_Agent]")) return "text-pink-400 bg-pink-500/10 border-pink-500/20";
