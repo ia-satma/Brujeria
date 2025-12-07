@@ -14,7 +14,10 @@ import {
   LearningAgendaSchema,
   PerformanceMetrics,
   PerformanceMetricsSchema,
+  RoleJustification,
+  RoleJustificationSchema,
   Department,
+  OrganizationalLevel,
   getAgentsByDepartment,
   getReportingChain
 } from "./org-architecture";
@@ -118,6 +121,10 @@ function getCurrentDate(): string {
 
 function generateEmployeeId(role: AgencyRole): string {
   return `emp_${role.roleId}_${Date.now().toString(36)}`;
+}
+
+function generateAgentName(roleName: string): string {
+  return roleName.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
 }
 
 export class OrganizationalStructureService {
@@ -468,6 +475,238 @@ export class OrganizationalStructureService {
       byDepartment,
       byLevel
     };
+  }
+
+  async proposeNewRole(proposal: {
+    proposedRole: {
+      roleName: string;
+      roleNameEs: string;
+      department: Department;
+      level: OrganizationalLevel;
+      reportsTo: string;
+    };
+    justification: {
+      gapIdentified: string;
+      evidenceOfNeed: string[];
+      expectedContribution: string;
+      tangibleBenefits: string[];
+      estimatedROI: string;
+    };
+    proposedBy: string;
+  }): Promise<RoleJustification> {
+    const proposalId = `prop_${Date.now().toString(36)}`;
+    const proposedDate = getCurrentDate();
+
+    const roleJustification: RoleJustification = {
+      proposalId,
+      proposedRole: proposal.proposedRole,
+      justification: proposal.justification,
+      proposedBy: proposal.proposedBy,
+      proposedDate,
+      reviewStatus: "submitted",
+      reviewerComments: [],
+      implementationStatus: {
+        bootstrapped: false,
+      },
+    };
+
+    const validated = RoleJustificationSchema.parse(roleJustification);
+
+    await this.pcloud.ensureFolderPath(FOLDER_STRUCTURE.proposals);
+    await this.pcloud.uploadJsonFile(
+      FOLDER_STRUCTURE.proposals,
+      `${proposalId}.json`,
+      validated
+    );
+
+    console.log(`Propuesta de nuevo rol creada: ${proposalId} - ${proposal.proposedRole.roleName}`);
+
+    return validated;
+  }
+
+  async listRoleProposals(): Promise<RoleJustification[]> {
+    try {
+      const files = await this.pcloud.listJsonFiles(FOLDER_STRUCTURE.proposals);
+      const proposals: RoleJustification[] = [];
+
+      for (const file of files) {
+        if (file.name.startsWith('prop_') && file.name.endsWith('.json')) {
+          try {
+            const proposal = await this.pcloud.downloadJsonFile<RoleJustification>(
+              `${FOLDER_STRUCTURE.proposals}/${file.name}`
+            );
+            proposals.push(proposal);
+          } catch (error) {
+            console.error(`Error loading proposal ${file.name}:`, error);
+          }
+        }
+      }
+
+      return proposals.sort((a, b) => 
+        new Date(b.proposedDate).getTime() - new Date(a.proposedDate).getTime()
+      );
+    } catch {
+      return [];
+    }
+  }
+
+  async getRoleProposal(proposalId: string): Promise<RoleJustification | null> {
+    try {
+      const proposal = await this.pcloud.downloadJsonFile<RoleJustification>(
+        `${FOLDER_STRUCTURE.proposals}/${proposalId}.json`
+      );
+      return proposal;
+    } catch {
+      return null;
+    }
+  }
+
+  async addReviewComment(
+    proposalId: string,
+    reviewerId: string,
+    comment: string,
+    decision?: 'approve' | 'reject' | 'request_changes'
+  ): Promise<void> {
+    const proposal = await this.getRoleProposal(proposalId);
+    
+    if (!proposal) {
+      throw new Error(`Propuesta no encontrada: ${proposalId}`);
+    }
+
+    proposal.reviewerComments.push({
+      reviewerId,
+      date: getCurrentDate(),
+      comment,
+      decision,
+    });
+
+    if (decision === 'request_changes') {
+      proposal.reviewStatus = 'under_review';
+    }
+
+    const validated = RoleJustificationSchema.parse(proposal);
+    await this.pcloud.uploadJsonFile(
+      FOLDER_STRUCTURE.proposals,
+      `${proposalId}.json`,
+      validated
+    );
+
+    console.log(`Comentario agregado a propuesta ${proposalId} por ${reviewerId}`);
+  }
+
+  async approveRole(
+    proposalId: string,
+    approverId: string,
+    notes?: string
+  ): Promise<{ success: boolean; employeeId?: string }> {
+    const proposal = await this.getRoleProposal(proposalId);
+    
+    if (!proposal) {
+      throw new Error(`Propuesta no encontrada: ${proposalId}`);
+    }
+
+    if (proposal.reviewStatus === 'approved' || proposal.reviewStatus === 'implemented') {
+      throw new Error(`La propuesta ya fue aprobada`);
+    }
+
+    proposal.reviewerComments.push({
+      reviewerId: approverId,
+      date: getCurrentDate(),
+      comment: notes || 'Propuesta aprobada',
+      decision: 'approve',
+    });
+
+    proposal.reviewStatus = 'approved';
+
+    const agentName = generateAgentName(proposal.proposedRole.roleName);
+    
+    const newRole: AgencyRole = {
+      roleId: `role_${Date.now().toString(36)}`,
+      roleName: proposal.proposedRole.roleName,
+      roleNameEs: proposal.proposedRole.roleNameEs,
+      level: proposal.proposedRole.level,
+      department: proposal.proposedRole.department,
+      reportsTo: proposal.proposedRole.reportsTo,
+      directReports: [],
+      responsibilities: [proposal.justification.expectedContribution],
+      decisionAuthority: [],
+      kpis: [],
+      collaborationWith: [proposal.proposedRole.reportsTo],
+    };
+
+    (ORGANIZATIONAL_STRUCTURE as Record<string, AgencyRole>)[agentName] = newRole;
+
+    try {
+      const bootstrapResult = await this.bootstrapEmployee(agentName);
+      
+      proposal.implementationStatus = {
+        bootstrapped: true,
+        day30Audit: { completed: false },
+        day90Audit: { completed: false },
+      };
+      proposal.reviewStatus = 'implemented';
+
+      const validated = RoleJustificationSchema.parse(proposal);
+      await this.pcloud.uploadJsonFile(
+        FOLDER_STRUCTURE.proposals,
+        `${proposalId}.json`,
+        validated
+      );
+
+      console.log(`Rol aprobado e implementado: ${agentName} (${bootstrapResult.employeeId})`);
+
+      return {
+        success: true,
+        employeeId: bootstrapResult.employeeId,
+      };
+    } catch (error) {
+      console.error(`Error al crear empleado para rol aprobado:`, error);
+      
+      const validated = RoleJustificationSchema.parse(proposal);
+      await this.pcloud.uploadJsonFile(
+        FOLDER_STRUCTURE.proposals,
+        `${proposalId}.json`,
+        validated
+      );
+
+      return {
+        success: false,
+      };
+    }
+  }
+
+  async rejectRole(
+    proposalId: string,
+    rejecterId: string,
+    reason: string
+  ): Promise<void> {
+    const proposal = await this.getRoleProposal(proposalId);
+    
+    if (!proposal) {
+      throw new Error(`Propuesta no encontrada: ${proposalId}`);
+    }
+
+    if (proposal.reviewStatus === 'approved' || proposal.reviewStatus === 'implemented') {
+      throw new Error(`No se puede rechazar una propuesta ya aprobada`);
+    }
+
+    proposal.reviewerComments.push({
+      reviewerId: rejecterId,
+      date: getCurrentDate(),
+      comment: reason,
+      decision: 'reject',
+    });
+
+    proposal.reviewStatus = 'rejected';
+
+    const validated = RoleJustificationSchema.parse(proposal);
+    await this.pcloud.uploadJsonFile(
+      FOLDER_STRUCTURE.proposals,
+      `${proposalId}.json`,
+      validated
+    );
+
+    console.log(`Propuesta rechazada: ${proposalId} por ${rejecterId}`);
   }
 
   private generateEmployeeProfile(agentName: string, employeeId: string, role: AgencyRole): EmployeeProfile {

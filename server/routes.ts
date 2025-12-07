@@ -1876,5 +1876,137 @@ export async function registerRoutes(
     }
   });
 
+  // ============================================
+  // ROLE PROPOSALS ENDPOINTS
+  // ============================================
+
+  const proposeRoleSchema = z.object({
+    proposedRole: z.object({
+      roleName: z.string().min(1),
+      roleNameEs: z.string().min(1),
+      department: z.enum(["creative_direction", "experience_design", "content_strategy", "digital_engineering", "operations", "governance"]),
+      level: z.enum(["executive_council", "department_director", "squad_leader", "specialist"]),
+      reportsTo: z.string().min(1),
+    }),
+    justification: z.object({
+      gapIdentified: z.string().min(1),
+      evidenceOfNeed: z.array(z.string()),
+      expectedContribution: z.string().min(1),
+      tangibleBenefits: z.array(z.string()),
+      estimatedROI: z.string().min(1),
+    }),
+    proposedBy: z.string().min(1),
+  });
+
+  app.post("/api/organization/proposals", async (req, res) => {
+    try {
+      const parsed = proposeRoleSchema.parse(req.body);
+      const orgService = getOrganizationalStructureService();
+      const proposal = await orgService.proposeNewRole(parsed);
+      
+      res.json({
+        success: true,
+        proposal,
+      });
+    } catch (error) {
+      console.error("Create proposal error:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ success: false, error: "Invalid request", details: error.errors });
+      }
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Error desconocido" });
+    }
+  });
+
+  app.get("/api/organization/proposals", async (req, res) => {
+    try {
+      const orgService = getOrganizationalStructureService();
+      const proposals = await orgService.listRoleProposals();
+      res.json({ success: true, proposals });
+    } catch (error) {
+      console.error("List proposals error:", error);
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Error desconocido" });
+    }
+  });
+
+  app.get("/api/organization/proposals/:proposalId", async (req, res) => {
+    try {
+      const { proposalId } = req.params;
+      const orgService = getOrganizationalStructureService();
+      const proposal = await orgService.getRoleProposal(proposalId);
+      
+      if (!proposal) {
+        return res.status(404).json({ success: false, error: `Propuesta no encontrada: ${proposalId}` });
+      }
+      res.json({ success: true, proposal });
+    } catch (error) {
+      console.error("Get proposal error:", error);
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Error desconocido" });
+    }
+  });
+
+  const reviewCommentSchema = z.object({
+    reviewerId: z.string().min(1),
+    comment: z.string().min(1),
+    decision: z.enum(["approve", "reject", "request_changes"]).optional(),
+  });
+
+  app.post("/api/organization/proposals/:proposalId/review", async (req, res) => {
+    try {
+      const { proposalId } = req.params;
+      const { reviewerId, comment, decision } = reviewCommentSchema.parse(req.body);
+      const orgService = getOrganizationalStructureService();
+      await orgService.addReviewComment(proposalId, reviewerId, comment, decision);
+      res.json({ success: true, message: "Comentario agregado" });
+    } catch (error) {
+      console.error("Add review comment error:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ success: false, error: "Invalid request", details: error.errors });
+      }
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Error desconocido" });
+    }
+  });
+
+  const approveSchema = z.object({
+    approverId: z.string().min(1),
+    notes: z.string().optional(),
+  });
+
+  app.post("/api/organization/proposals/:proposalId/approve", async (req, res) => {
+    try {
+      const { proposalId } = req.params;
+      const { approverId, notes } = approveSchema.parse(req.body);
+      const orgService = getOrganizationalStructureService();
+      const result = await orgService.approveRole(proposalId, approverId, notes);
+      res.json({ success: true, ...result });
+    } catch (error) {
+      console.error("Approve proposal error:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ success: false, error: "Invalid request", details: error.errors });
+      }
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Error desconocido" });
+    }
+  });
+
+  const rejectSchema = z.object({
+    rejecterId: z.string().min(1),
+    reason: z.string().min(1),
+  });
+
+  app.post("/api/organization/proposals/:proposalId/reject", async (req, res) => {
+    try {
+      const { proposalId } = req.params;
+      const { rejecterId, reason } = rejectSchema.parse(req.body);
+      const orgService = getOrganizationalStructureService();
+      await orgService.rejectRole(proposalId, rejecterId, reason);
+      res.json({ success: true, message: "Propuesta rechazada" });
+    } catch (error) {
+      console.error("Reject proposal error:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ success: false, error: "Invalid request", details: error.errors });
+      }
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Error desconocido" });
+    }
+  });
+
   return httpServer;
 }
