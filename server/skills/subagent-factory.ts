@@ -432,7 +432,16 @@ Retorna SOLO JSON válido:
   async listSubagents(parentAgentId: string): Promise<DynamicSubagent[]> {
     try {
       const folderPath = this.getSubagentsFolderPath(parentAgentId);
-      const files = await this.pcloud.listJsonFiles(folderPath);
+      
+      let files: Array<{ name: string }> = [];
+      try {
+        files = await this.pcloud.listJsonFiles(folderPath);
+      } catch (listError: any) {
+        if (listError.message?.includes('does not exist') || listError.message?.includes('not found')) {
+          return [];
+        }
+        throw listError;
+      }
       
       const subagents: DynamicSubagent[] = [];
       for (const file of files) {
@@ -586,38 +595,87 @@ export function getSubagentFactory(): SubagentFactory {
   return factoryInstance;
 }
 
-export async function initializeDefaultSkills(): Promise<{ created: number; existing: number; errors: string[] }> {
+export async function initializeDefaultSkills(): Promise<{ 
+  skillsCreated: number; 
+  skillsExisting: number; 
+  subagentsCreated: number;
+  subagentsExisting: number;
+  errors: string[] 
+}> {
   const factory = getSubagentFactory();
   await factory.initialize();
   
-  let created = 0;
-  let existing = 0;
+  let skillsCreated = 0;
+  let skillsExisting = 0;
+  let subagentsCreated = 0;
+  let subagentsExisting = 0;
   const errors: string[] = [];
   
-  console.log("[SubagentFactory] Checking default skills for all agents...");
+  console.log("[SubagentFactory] Checking default skills and subagents for all agents...");
   
   for (const [agentName, defaultSkills] of Object.entries(DEFAULT_SKILLS_CONFIG)) {
     try {
       const existingSkills = await factory.listSkills(agentName);
       const existingSkillNames = new Set(existingSkills.map(s => s.name.toLowerCase()));
+      const skillIdByName = new Map<string, string>();
+      
+      for (const skill of existingSkills) {
+        skillIdByName.set(skill.name.toLowerCase(), skill.id);
+      }
       
       for (const skillConfig of defaultSkills) {
-        if (existingSkillNames.has(skillConfig.name.toLowerCase())) {
-          existing++;
+        const skillNameLower = skillConfig.name.toLowerCase();
+        
+        if (existingSkillNames.has(skillNameLower)) {
+          skillsExisting++;
+        } else {
+          try {
+            const newSkill = await factory.createSkill(
+              agentName,
+              skillConfig.name,
+              skillConfig.domain,
+              skillConfig.subDomain
+            );
+            skillIdByName.set(skillNameLower, newSkill.id);
+            skillsCreated++;
+            console.log(`[SubagentFactory] ✓ Created skill "${skillConfig.name}" for ${agentName}`);
+          } catch (skillError: any) {
+            const errMsg = `Failed to create skill "${skillConfig.name}" for ${agentName}: ${skillError.message}`;
+            errors.push(errMsg);
+            console.error(`[SubagentFactory] ✗ ${errMsg}`);
+          }
+        }
+      }
+      
+      const existingSubagents = await factory.listSubagents(agentName);
+      const existingSubagentNames = new Set(existingSubagents.map(s => s.name.toLowerCase()));
+      
+      for (const skillConfig of defaultSkills) {
+        const subagentName = `${skillConfig.name} Specialist`;
+        const skillNameLower = skillConfig.name.toLowerCase();
+        const skillId = skillIdByName.get(skillNameLower);
+        
+        if (!skillId) {
+          continue;
+        }
+        
+        if (existingSubagentNames.has(subagentName.toLowerCase())) {
+          subagentsExisting++;
           continue;
         }
         
         try {
-          await factory.createSkill(
+          await factory.createDynamicSubagent(
             agentName,
-            skillConfig.name,
-            skillConfig.domain,
-            skillConfig.subDomain
+            subagentName,
+            skillConfig.description,
+            [skillId],
+            ["always"]
           );
-          created++;
-          console.log(`[SubagentFactory] ✓ Created skill "${skillConfig.name}" for ${agentName}`);
-        } catch (skillError: any) {
-          const errMsg = `Failed to create skill "${skillConfig.name}" for ${agentName}: ${skillError.message}`;
+          subagentsCreated++;
+          console.log(`[SubagentFactory] ✓ Created subagent "${subagentName}" for ${agentName}`);
+        } catch (subagentError: any) {
+          const errMsg = `Failed to create subagent "${subagentName}" for ${agentName}: ${subagentError.message}`;
           errors.push(errMsg);
           console.error(`[SubagentFactory] ✗ ${errMsg}`);
         }
@@ -629,7 +687,12 @@ export async function initializeDefaultSkills(): Promise<{ created: number; exis
     }
   }
   
-  console.log(`[SubagentFactory] Skills initialization complete: ${created} created, ${existing} already exist, ${errors.length} errors`);
+  console.log(`[SubagentFactory] Initialization complete:`);
+  console.log(`  - Skills: ${skillsCreated} created, ${skillsExisting} already exist`);
+  console.log(`  - Subagents: ${subagentsCreated} created, ${subagentsExisting} already exist`);
+  if (errors.length > 0) {
+    console.log(`  - Errors: ${errors.length}`);
+  }
   
-  return { created, existing, errors };
+  return { skillsCreated, skillsExisting, subagentsCreated, subagentsExisting, errors };
 }

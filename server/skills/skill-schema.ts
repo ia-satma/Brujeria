@@ -360,7 +360,13 @@ ${specialization.industryFocus.length > 0 ? `Industrias de enfoque: ${specializa
   if (knowledgeBase.benchmarks.length > 0) {
     prompt += `\nBENCHMARKS DE REFERENCIA:\n`;
     for (const benchmark of knowledgeBase.benchmarks.slice(0, 5)) {
-      prompt += `- ${benchmark.metric} (${benchmark.industry}): Bueno ${benchmark.goodRange.min}-${benchmark.goodRange.max}, Excelente >${benchmark.excellentThreshold}\n`;
+      if (benchmark.goodRange) {
+        prompt += `- ${benchmark.metric} (${benchmark.industry || 'general'}): Bueno ${benchmark.goodRange.min}-${benchmark.goodRange.max}${benchmark.excellentThreshold ? `, Excelente >${benchmark.excellentThreshold}` : ''}\n`;
+      } else if (benchmark.goodThreshold) {
+        prompt += `- ${benchmark.metric} (${benchmark.industry || 'general'}): Bueno >${benchmark.goodThreshold}${benchmark.excellentThreshold ? `, Excelente >${benchmark.excellentThreshold}` : ''}\n`;
+      } else {
+        prompt += `- ${benchmark.metric} (${benchmark.industry || 'general'})\n`;
+      }
     }
   }
 
