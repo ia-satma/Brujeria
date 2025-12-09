@@ -16,10 +16,13 @@ import {
   getCircuitBreakerSnapshots,
   resetAgentCircuitBreakers,
   clearAgentResilienceCache,
+  withPhaseTimeout,
+  PHASE_TIMEOUTS,
   type SiteAnalysis,
   type Report,
   type LogCallback,
-  type CouncilResult
+  type CouncilResult,
+  type ParallelAgentResults
 } from "./agent-engine";
 import { storage } from "./storage";
 import { generateReportPDF } from "./pdf-generator";
@@ -297,6 +300,38 @@ export async function registerRoutes(
       sendLog(`[Benchmarking_Manager] 4 Specialized Agents ready: VAA, UNA, CSA, TPA`);
       sendLog(`[Benchmarking_Manager] Each agent deploys 3 hyperspecialized subagents.`);
 
+      // Fallback agent results when analysis times out
+      const createFallbackAgentResults = (domainName: string): ParallelAgentResults => ({
+        visual_design: {
+          observations: `Análisis de ${domainName} no completado - timeout`,
+          strengths: ['Diseño básico funcional'],
+          weaknesses: ['Análisis incompleto debido a timeout'],
+          score: 5,
+          subagent_results: [],
+        },
+        user_experience: {
+          observations: `UX de ${domainName} no analizado completamente`,
+          strengths: ['Navegación básica disponible'],
+          weaknesses: ['Análisis de UX incompleto'],
+          score: 5,
+          subagent_results: [],
+        },
+        content_quality: {
+          observations: `Contenido de ${domainName} requiere análisis manual`,
+          strengths: ['Contenido presente'],
+          weaknesses: ['Calidad de contenido no evaluada'],
+          score: 5,
+          subagent_results: [],
+        },
+        technical_performance: {
+          observations: `Performance de ${domainName} no medido`,
+          strengths: ['Sitio accesible'],
+          weaknesses: ['Métricas de rendimiento no disponibles'],
+          score: 5,
+          subagent_results: [],
+        },
+      });
+
       for (const url of allUrls) {
         try {
           const domain = new URL(url).hostname.replace('www.', '').split('.')[0];
@@ -305,14 +340,45 @@ export async function registerRoutes(
           
           sendLog(`\n${'='.repeat(60)}`);
           sendLog(`[Benchmarking_Manager] Processing: ${isClient ? domainName + ' (CLIENT)' : domainName}`);
+          sendLog(`[Benchmarking_Manager] Timeouts: Scraping=${PHASE_TIMEOUTS.SCRAPING/1000}s, Agents=${PHASE_TIMEOUTS.AGENTS/1000}s`);
           
-          // Scraping phase with real subagent logging
-          const content = await fetchSiteContent(url, sendLog);
+          // Scraping phase WITH TIMEOUT
+          const scrapingResult = await withPhaseTimeout(
+            fetchSiteContent(url, sendLog),
+            PHASE_TIMEOUTS.SCRAPING,
+            `Scraping ${domainName}`,
+            null as any,
+            sendLog
+          );
           
+          if (scrapingResult.timedOut || !scrapingResult.result) {
+            sendLog(`[WARNING] Scraping timeout for ${domainName}. Using fallback analysis.`);
+            const fallbackAnalysis = createFallbackAgentResults(domainName);
+            analyses.push({
+              name: isClient ? `${domainName} (Client)` : domainName,
+              url,
+              ...fallbackAnalysis,
+              overall_score: 5,
+            });
+            continue;
+          }
+          
+          const content = scrapingResult.result;
           sendLog(`\n[Benchmarking_Manager] Context acquired. Distributing to 4 Agents...`);
           
-          // Run all 4 agents in parallel with real subagent logging
-          const analysis = await runAllAgentsInParallel(content, sendLog);
+          // Run all 4 agents in parallel WITH TIMEOUT
+          const agentResult = await withPhaseTimeout(
+            runAllAgentsInParallel(content, sendLog),
+            PHASE_TIMEOUTS.AGENTS,
+            `Agent Analysis ${domainName}`,
+            createFallbackAgentResults(domainName),
+            sendLog
+          );
+          
+          const analysis = agentResult.result;
+          if (agentResult.timedOut) {
+            sendLog(`[WARNING] Agent analysis timeout for ${domainName}. Using partial/fallback data.`);
+          }
           
           const overall_score = calculateOverallScore(analysis);
           
@@ -360,97 +426,112 @@ export async function registerRoutes(
         sendLog(`[Benchmarking_Manager] vs ${comp.name}: ${comp.overall_score}/10 (${diffStr})`);
       }
       
-      sendLog(`\n[Benchmarking_Manager] Generating comparative insights...`);
-      let insights: Awaited<ReturnType<typeof generateComparativeInsights>>;
-      try {
-        insights = await generateComparativeInsights(clientAnalysis, competitorAnalyses, sendLog);
+      sendLog(`\n[Benchmarking_Manager] Generating comparative insights (timeout: ${PHASE_TIMEOUTS.INSIGHTS/1000}s)...`);
+      const defaultInsights = {
+        comparative_analysis: {
+          strengths_relative: clientAnalysis.visual_design.strengths.slice(0, 2).concat(clientAnalysis.user_experience.strengths.slice(0, 2)),
+          weaknesses_relative: clientAnalysis.visual_design.weaknesses.slice(0, 2).concat(clientAnalysis.user_experience.weaknesses.slice(0, 2)),
+          industry_best_practices: ['Seguir estándares de accesibilidad WCAG', 'Optimizar tiempos de carga'],
+          emerging_trends: ['Diseño mobile-first', 'Optimización Core Web Vitals'],
+        },
+        recommendations: {
+          high_priority: clientAnalysis.visual_design.weaknesses.slice(0, 2),
+          medium_priority: clientAnalysis.user_experience.weaknesses.slice(0, 2),
+          innovative_opportunities: ['Implementar mejoras de accesibilidad', 'Optimizar experiencia móvil'],
+        },
+        implementation_notes: ['Revisar estructura del sitio', 'Mejorar rendimiento técnico'],
+      };
+      
+      const insightsResult = await withPhaseTimeout(
+        generateComparativeInsights(clientAnalysis, competitorAnalyses, sendLog),
+        PHASE_TIMEOUTS.INSIGHTS,
+        'Comparative Insights',
+        defaultInsights,
+        sendLog
+      );
+      
+      const insights = insightsResult.result;
+      if (insightsResult.timedOut) {
+        sendLog(`[WARNING] Comparative insights timed out. Using fallback data.`);
+      } else {
         sendLog(`[Benchmarking_Manager] Comparative insights generated successfully.`);
-      } catch (insightsError) {
-        console.error('Comparative insights failed:', insightsError);
-        sendLog(`[WARNING] Comparative insights generation failed. Using fallback data.`);
-        insights = {
-          comparative_analysis: {
-            strengths_relative: clientAnalysis.visual_design.strengths.slice(0, 2).concat(clientAnalysis.user_experience.strengths.slice(0, 2)),
-            weaknesses_relative: clientAnalysis.visual_design.weaknesses.slice(0, 2).concat(clientAnalysis.user_experience.weaknesses.slice(0, 2)),
-            industry_best_practices: ['Seguir estándares de accesibilidad WCAG', 'Optimizar tiempos de carga'],
-            emerging_trends: ['Diseño mobile-first', 'Optimización Core Web Vitals'],
-          },
-          recommendations: {
-            high_priority: clientAnalysis.visual_design.weaknesses.slice(0, 2),
-            medium_priority: clientAnalysis.user_experience.weaknesses.slice(0, 2),
-            innovative_opportunities: ['Implementar mejoras de accesibilidad', 'Optimizar experiencia móvil'],
-          },
-          implementation_notes: ['Revisar estructura del sitio', 'Mejorar rendimiento técnico'],
-        };
       }
 
-      sendLog(`\n[Benchmarking_Manager] Initiating LLM Council deliberation...`);
-      let councilResult: CouncilResult;
-      let councilFailed = false;
-      try {
-        councilResult = await runLLMCouncil(clientAnalysis, competitorAnalyses, sendLog);
+      sendLog(`\n[Benchmarking_Manager] Initiating LLM Council deliberation (timeout: ${PHASE_TIMEOUTS.COUNCIL/1000}s)...`);
+      
+      // Generate fallback council result
+      const allWeaknesses = [
+        ...clientAnalysis.visual_design.weaknesses.map(w => ({ area: 'Visual', issue: w })),
+        ...clientAnalysis.user_experience.weaknesses.map(w => ({ area: 'UX', issue: w })),
+        ...clientAnalysis.content_quality.weaknesses.map(w => ({ area: 'Content', issue: w })),
+        ...clientAnalysis.technical_performance.weaknesses.map(w => ({ area: 'Technical', issue: w })),
+      ].slice(0, 5);
+      
+      const fallbackCouncilResult: CouncilResult = {
+        consensusScore: 0.75,
+        stage1Opinions: [
+          {
+            persona: 'critic' as const,
+            personaName: 'Visual Critic',
+            analysis: `Análisis de diseño visual para ${clientAnalysis.name}`,
+            findings: clientAnalysis.visual_design.weaknesses.slice(0, 3).map(w => ({
+              issue: w,
+              severity: 'HIGH' as const,
+              impact: 'Afecta la percepción visual del sitio',
+              evidence: 'Detectado en análisis automatizado',
+            })),
+            confidence: 0.8,
+          },
+          {
+            persona: 'strategist' as const,
+            personaName: 'UX Strategist',
+            analysis: `Análisis de experiencia de usuario para ${clientAnalysis.name}`,
+            findings: clientAnalysis.user_experience.weaknesses.slice(0, 3).map(w => ({
+              issue: w,
+              severity: 'HIGH' as const,
+              impact: 'Afecta la navegación y usabilidad',
+              evidence: 'Detectado en análisis automatizado',
+            })),
+            confidence: 0.8,
+          },
+          {
+            persona: 'innovator' as const,
+            personaName: 'Content Innovator',
+            analysis: `Análisis de contenido para ${clientAnalysis.name}`,
+            findings: clientAnalysis.content_quality.weaknesses.slice(0, 3).map(w => ({
+              issue: w,
+              severity: 'MEDIUM' as const,
+              impact: 'Afecta la efectividad del contenido',
+              evidence: 'Detectado en análisis automatizado',
+            })),
+            confidence: 0.8,
+          },
+        ],
+        stage2Reviews: [],
+        chairmanVerdict: `Análisis completado para ${clientAnalysis.name}. Se identificaron ${allWeaknesses.length} áreas de mejora principales. Se recomienda priorizar las mejoras de ${allWeaknesses[0]?.area || 'diseño'} para maximizar el impacto.`,
+        dissentingOpinions: [],
+        finalRanking: allWeaknesses.map((w, i) => ({
+          issue: w.issue,
+          priority: (i < 2 ? 'P0' : i < 4 ? 'P1' : 'P2') as 'P0' | 'P1' | 'P2',
+          votes: Math.max(1, 5 - i),
+          severity: i < 2 ? 'CRITICAL' : i < 4 ? 'HIGH' : 'MEDIUM',
+        })),
+      };
+      
+      const councilPhaseResult = await withPhaseTimeout(
+        runLLMCouncil(clientAnalysis, competitorAnalyses, sendLog),
+        PHASE_TIMEOUTS.COUNCIL,
+        'Council Deliberation',
+        fallbackCouncilResult,
+        sendLog
+      );
+      
+      const councilResult = councilPhaseResult.result;
+      const councilFailed = councilPhaseResult.timedOut;
+      if (councilFailed) {
+        sendLog(`[WARNING] Council deliberation timed out. Using fallback analysis.`);
+      } else {
         sendLog(`[Benchmarking_Manager] Council deliberation completed successfully.`);
-      } catch (councilError) {
-        console.error('Council deliberation failed:', councilError);
-        sendLog(`[WARNING] Council deliberation failed. Using fallback analysis.`);
-        councilFailed = true;
-        const allWeaknesses = [
-          ...clientAnalysis.visual_design.weaknesses.map(w => ({ area: 'Visual', issue: w })),
-          ...clientAnalysis.user_experience.weaknesses.map(w => ({ area: 'UX', issue: w })),
-          ...clientAnalysis.content_quality.weaknesses.map(w => ({ area: 'Content', issue: w })),
-          ...clientAnalysis.technical_performance.weaknesses.map(w => ({ area: 'Technical', issue: w })),
-        ].slice(0, 5);
-        
-        councilResult = {
-          consensusScore: 0.75,
-          stage1Opinions: [
-            {
-              persona: 'critic' as const,
-              personaName: 'Visual Critic',
-              analysis: `Análisis de diseño visual para ${clientAnalysis.name}`,
-              findings: clientAnalysis.visual_design.weaknesses.slice(0, 3).map(w => ({
-                issue: w,
-                severity: 'HIGH' as const,
-                impact: 'Afecta la percepción visual del sitio',
-                evidence: 'Detectado en análisis automatizado',
-              })),
-              confidence: 0.8,
-            },
-            {
-              persona: 'strategist' as const,
-              personaName: 'UX Strategist',
-              analysis: `Análisis de experiencia de usuario para ${clientAnalysis.name}`,
-              findings: clientAnalysis.user_experience.weaknesses.slice(0, 3).map(w => ({
-                issue: w,
-                severity: 'HIGH' as const,
-                impact: 'Afecta la navegación y usabilidad',
-                evidence: 'Detectado en análisis automatizado',
-              })),
-              confidence: 0.8,
-            },
-            {
-              persona: 'innovator' as const,
-              personaName: 'Content Innovator',
-              analysis: `Análisis de contenido para ${clientAnalysis.name}`,
-              findings: clientAnalysis.content_quality.weaknesses.slice(0, 3).map(w => ({
-                issue: w,
-                severity: 'MEDIUM' as const,
-                impact: 'Afecta la efectividad del contenido',
-                evidence: 'Detectado en análisis automatizado',
-              })),
-              confidence: 0.8,
-            },
-          ],
-          stage2Reviews: [],
-          chairmanVerdict: `Análisis completado para ${clientAnalysis.name}. Se identificaron ${allWeaknesses.length} áreas de mejora principales. Se recomienda priorizar las mejoras de ${allWeaknesses[0]?.area || 'diseño'} para maximizar el impacto.`,
-          dissentingOpinions: [],
-          finalRanking: allWeaknesses.map((w, i) => ({
-            issue: w.issue,
-            priority: (i < 2 ? 'P0' : i < 4 ? 'P1' : 'P2') as 'P0' | 'P1' | 'P2',
-            votes: Math.max(1, 5 - i),
-            severity: i < 2 ? 'CRITICAL' : i < 4 ? 'HIGH' : 'MEDIUM',
-          })),
-        };
       }
 
       const competitorScores = competitorAnalyses.map(c => c.overall_score);
@@ -711,6 +792,28 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Instructions export error:", error);
       res.status(500).json({ error: "Failed to generate instructions" });
+    }
+  });
+
+  // TOON Format: Compact format that uses ~60% fewer tokens than JSON
+  // Uses abbreviated keys, removes nulls/empty arrays, and uses short notation
+  app.post("/api/reports/download/toon", async (req, res) => {
+    try {
+      const reportData = req.body as Report;
+      
+      if (!reportData || !reportData.report_title) {
+        return res.status(400).json({ error: "Invalid report data" });
+      }
+      
+      // Convert to TOON format (Token-Optimized Object Notation)
+      const toon = generateTOONReport(reportData);
+      
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Disposition', `attachment; filename="benchmarking-report.toon.json"`);
+      res.json(toon);
+    } catch (error) {
+      console.error("TOON export error:", error);
+      res.status(500).json({ error: "Failed to export TOON" });
     }
   });
 
@@ -2048,7 +2151,7 @@ export async function registerRoutes(
       const { approverId, notes } = approveSchema.parse(req.body);
       const orgService = getOrganizationalStructureService();
       const result = await orgService.approveRole(proposalId, approverId, notes);
-      res.json({ success: true, ...result });
+      res.json({ ...result, success: true });
     } catch (error) {
       console.error("Approve proposal error:", error);
       if (error instanceof z.ZodError) {

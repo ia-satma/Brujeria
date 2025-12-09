@@ -1687,6 +1687,15 @@ Return ONLY valid JSON in this format:
 
 const OPENAI_TIMEOUT_MS = 60000;
 
+// Phase timeout configuration (in milliseconds)
+export const PHASE_TIMEOUTS = {
+  SCRAPING: 60000,      // 60 seconds per site
+  AGENTS: 90000,        // 90 seconds for all 4 agents
+  COUNCIL: 60000,       // 60 seconds for council deliberation
+  INSIGHTS: 30000,      // 30 seconds for comparative insights
+  GLOBAL: 300000,       // 5 minutes global timeout
+};
+
 async function withTimeout<T>(promise: Promise<T>, ms: number, operation: string): Promise<T> {
   let timeoutId: NodeJS.Timeout;
   const timeoutPromise = new Promise<never>((_, reject) => {
@@ -1700,6 +1709,25 @@ async function withTimeout<T>(promise: Promise<T>, ms: number, operation: string
   } catch (error) {
     clearTimeout(timeoutId!);
     throw error;
+  }
+}
+
+// Exported timeout wrapper with fallback support
+export async function withPhaseTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  phaseName: string,
+  fallback: T,
+  log?: LogCallback
+): Promise<{ result: T; timedOut: boolean }> {
+  try {
+    const result = await withTimeout(promise, timeoutMs, phaseName);
+    return { result, timedOut: false };
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    log?.(`[TIMEOUT] ${phaseName} exceeded ${timeoutMs}ms: ${errorMsg}. Using fallback.`);
+    console.error(`[TIMEOUT] ${phaseName}:`, errorMsg);
+    return { result: fallback, timedOut: true };
   }
 }
 
