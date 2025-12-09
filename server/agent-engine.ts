@@ -1755,6 +1755,32 @@ export async function generateComparativeInsights(
   };
   
   try {
+    const MAX_DETAILED = 10;
+    const hasMany = competitorAnalyses.length > MAX_DETAILED;
+    const sortedCompetitors = [...competitorAnalyses].sort((a, b) => b.overall_score - a.overall_score);
+    const topCompetitors = sortedCompetitors.slice(0, MAX_DETAILED);
+    
+    const avgScore = competitorAnalyses.length > 0
+      ? (competitorAnalyses.reduce((s, c) => s + c.overall_score, 0) / competitorAnalyses.length).toFixed(1)
+      : '0';
+    
+    const competitorSection = hasMany ? `
+COMPETITORS (${competitorAnalyses.length} total, showing top ${MAX_DETAILED}):
+Industry Average Score: ${avgScore}/10
+Score Range: ${sortedCompetitors[sortedCompetitors.length - 1]?.overall_score || 0} - ${sortedCompetitors[0]?.overall_score || 0}/10
+
+TOP PERFORMERS:
+${topCompetitors.map((comp, i) => `
+${i + 1}. ${comp.name} - Overall: ${comp.overall_score}/10
+   Visual: ${comp.visual_design.score}, UX: ${comp.user_experience.score}, Content: ${comp.content_quality.score}, Tech: ${comp.technical_performance.score}
+`).join('')}` : `
+COMPETITORS:
+${competitorAnalyses.map((comp, i) => `
+${i + 1}. ${comp.name} (${comp.url}) - Overall: ${comp.overall_score}/10
+   - Visual: ${comp.visual_design.score}, UX: ${comp.user_experience.score}, Content: ${comp.content_quality.score}, Tech: ${comp.technical_performance.score}
+   - Key Strengths: ${[...comp.visual_design.strengths.slice(0,1), ...comp.user_experience.strengths.slice(0,1)].join(', ')}
+`).join('\n')}`;
+    
     const analysisContext = `
 CLIENT WEBSITE: ${clientAnalysis.name} (${clientAnalysis.url})
 Overall Score: ${clientAnalysis.overall_score}/10
@@ -1770,15 +1796,9 @@ Overall Score: ${clientAnalysis.overall_score}/10
 - Technical: ${clientAnalysis.technical_performance.score}/10
   Strengths: ${clientAnalysis.technical_performance.strengths.join(', ')}
   Weaknesses: ${clientAnalysis.technical_performance.weaknesses.join(', ')}
+${competitorSection}
 
-COMPETITORS:
-${competitorAnalyses.map((comp, i) => `
-${i + 1}. ${comp.name} (${comp.url}) - Overall: ${comp.overall_score}/10
-   - Visual: ${comp.visual_design.score}, UX: ${comp.user_experience.score}, Content: ${comp.content_quality.score}, Tech: ${comp.technical_performance.score}
-   - Key Strengths: ${[...comp.visual_design.strengths.slice(0,1), ...comp.user_experience.strengths.slice(0,1)].join(', ')}
-`).join('\n')}
-
-Provide strategic insights comparing the client to competitors. Be specific about score gaps and opportunities.`;
+Provide strategic insights comparing the client to ${competitorAnalyses.length} competitors. Be specific about score gaps and opportunities.`;
 
     const completion = await withTimeout(
       openai.chat.completions.create({
@@ -1821,6 +1841,43 @@ function buildCouncilContext(
   const avgCompetitorScore = competitorAnalyses.length > 0
     ? (competitorAnalyses.reduce((sum, c) => sum + c.overall_score, 0) / competitorAnalyses.length).toFixed(1)
     : 'N/A';
+  
+  const MAX_DETAILED_COMPETITORS = 10;
+  const hasMany = competitorAnalyses.length > MAX_DETAILED_COMPETITORS;
+  
+  const sortedCompetitors = [...competitorAnalyses].sort((a, b) => b.overall_score - a.overall_score);
+  const topCompetitors = sortedCompetitors.slice(0, MAX_DETAILED_COMPETITORS);
+  const remainingCompetitors = sortedCompetitors.slice(MAX_DETAILED_COMPETITORS);
+  
+  const competitorStats = hasMany ? `
+=== COMPETITOR STATISTICS (${competitorAnalyses.length} total) ===
+Average Score: ${avgCompetitorScore}/10
+Highest Score: ${sortedCompetitors[0]?.overall_score || 0}/10 (${sortedCompetitors[0]?.name || 'N/A'})
+Lowest Score: ${sortedCompetitors[sortedCompetitors.length - 1]?.overall_score || 0}/10
+Score Distribution:
+- Excellent (8+): ${competitorAnalyses.filter(c => c.overall_score >= 8).length} sites
+- Good (6-7.9): ${competitorAnalyses.filter(c => c.overall_score >= 6 && c.overall_score < 8).length} sites
+- Average (4-5.9): ${competitorAnalyses.filter(c => c.overall_score >= 4 && c.overall_score < 6).length} sites
+- Below Average (<4): ${competitorAnalyses.filter(c => c.overall_score < 4).length} sites
+
+Category Averages:
+- Visual Design: ${(competitorAnalyses.reduce((s, c) => s + c.visual_design.score, 0) / competitorAnalyses.length).toFixed(1)}/10
+- UX: ${(competitorAnalyses.reduce((s, c) => s + c.user_experience.score, 0) / competitorAnalyses.length).toFixed(1)}/10
+- Content: ${(competitorAnalyses.reduce((s, c) => s + c.content_quality.score, 0) / competitorAnalyses.length).toFixed(1)}/10
+- Technical: ${(competitorAnalyses.reduce((s, c) => s + c.technical_performance.score, 0) / competitorAnalyses.length).toFixed(1)}/10
+` : '';
+
+  const topCompetitorDetails = `
+=== TOP ${topCompetitors.length} COMPETITORS (by score) ===
+${topCompetitors.map((c, i) => `
+${i + 1}. ${c.name} (${c.url}): ${c.overall_score}/10
+   Visual: ${c.visual_design.score}, UX: ${c.user_experience.score}, Content: ${c.content_quality.score}, Tech: ${c.technical_performance.score}
+`).join('')}`;
+
+  const remainingList = hasMany ? `
+=== OTHER COMPETITORS (${remainingCompetitors.length} more) ===
+${remainingCompetitors.map(c => `${c.name}: ${c.overall_score}/10`).join(' | ')}
+` : '';
     
   return `
 === CLIENT WEBSITE ANALYSIS ===
@@ -1846,14 +1903,8 @@ Technical Performance: ${clientAnalysis.technical_performance.score}/10
 - Observations: ${clientAnalysis.technical_performance.observations}
 - Strengths: ${clientAnalysis.technical_performance.strengths.join(', ')}
 - Weaknesses: ${clientAnalysis.technical_performance.weaknesses.join(', ')}
-
-=== COMPETITOR COMPARISON ===
-${competitorAnalyses.map((c, i) => `
-${i + 1}. ${c.name} (${c.url}): ${c.overall_score}/10
-   Visual: ${c.visual_design.score}, UX: ${c.user_experience.score}, Content: ${c.content_quality.score}, Tech: ${c.technical_performance.score}
-`).join('')}
-
-Analyze this website and identify all issues, opportunities, and recommendations.`;
+${competitorStats}${topCompetitorDetails}${remainingList}
+Analyze this website and identify all issues, opportunities, and recommendations based on ${competitorAnalyses.length} competitor${competitorAnalyses.length > 1 ? 's' : ''}.`;
 }
 
 async function runCouncilStage1(

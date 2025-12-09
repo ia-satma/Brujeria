@@ -335,7 +335,23 @@ export async function registerRoutes(
     let globalTimeoutId: NodeJS.Timeout | null = null;
     let analysisAborted = false;
     
-    const GLOBAL_ANALYSIS_TIMEOUT = 180000; // 180 seconds total for entire analysis
+    // Batch processing configuration
+    const BATCH_CONFIG = {
+      CONCURRENCY: 4,  // Process 4 URLs at a time
+      MIN_TIMEOUT_PER_URL: 60000,  // 60 seconds minimum per URL
+      MAX_GLOBAL_TIMEOUT: 600000,  // 10 minutes max
+    };
+
+    // Calculate dynamic timeout based on URL count
+    const calculateDynamicTimeout = (urlCount: number): number => {
+      const baseTime = 120000; // 2 minutes base
+      const perUrlTime = 45000; // 45 seconds per URL (accounting for parallelism)
+      const batchFactor = Math.ceil(urlCount / BATCH_CONFIG.CONCURRENCY);
+      return Math.min(baseTime + (batchFactor * perUrlTime), BATCH_CONFIG.MAX_GLOBAL_TIMEOUT);
+    };
+    
+    // Will be set dynamically after parsing URLs
+    let GLOBAL_ANALYSIS_TIMEOUT = 180000; // Default fallback
     
     // Track when connection actually closes (for cleanup only, not for aborting)
     req.on('close', () => {
@@ -385,7 +401,11 @@ export async function registerRoutes(
       const allUrls = [clientUrl, ...competitorUrls];
       const analyses: SiteAnalysis[] = [];
       
-      // Global timeout handler - forces completion after 180 seconds
+      // Calculate dynamic timeout based on URL count
+      const dynamicTimeout = calculateDynamicTimeout(allUrls.length);
+      GLOBAL_ANALYSIS_TIMEOUT = dynamicTimeout;
+      
+      // Global timeout handler - forces completion after dynamic timeout
       const createGlobalFallbackReport = (): Report => {
         const domain = new URL(clientUrl).hostname.replace('www.', '').split('.')[0];
         const domainName = domain.charAt(0).toUpperCase() + domain.slice(1);
@@ -454,7 +474,7 @@ export async function registerRoutes(
             medium_priority: [],
             innovative_opportunities: [],
           },
-          implementation_notes: ['Análisis no completado debido a timeout global de 180 segundos'],
+          implementation_notes: [`Análisis no completado debido a timeout global de ${Math.round(GLOBAL_ANALYSIS_TIMEOUT/1000)} segundos`],
           councilResult: fallbackCouncilResult,
           prioritized_tasks: [],
           execution_order: [],
@@ -466,9 +486,9 @@ export async function registerRoutes(
         if (analysisAborted || res.writableEnded) return;
         
         analysisAborted = true;
-        console.log('[GLOBAL TIMEOUT] 180 second limit reached. Sending fallback report.');
+        console.log(`[GLOBAL TIMEOUT] ${Math.round(GLOBAL_ANALYSIS_TIMEOUT/1000)} second limit reached. Sending fallback report.`);
         
-        safeWrite(`data: ${JSON.stringify({ type: 'log', message: '\n[GLOBAL TIMEOUT] Límite de 180 segundos alcanzado. Generando reporte de emergencia...' })}\n\n`);
+        safeWrite(`data: ${JSON.stringify({ type: 'log', message: `\n[GLOBAL TIMEOUT] Límite de ${Math.round(GLOBAL_ANALYSIS_TIMEOUT/1000)} segundos alcanzado. Generando reporte de emergencia...` })}\n\n`);
         
         const fallbackReport = createGlobalFallbackReport();
         
@@ -519,82 +539,95 @@ export async function registerRoutes(
         },
       });
 
-      for (const url of allUrls) {
-        // Skip remaining URLs if global timeout was triggered
-        if (analysisAborted) {
-          console.log('[STREAM] Skipping remaining URLs due to global timeout.');
-          break;
-        }
-        
-        try {
+      // Process URLs in parallel batches
+      const processUrlBatch = async (urls: string[], startIndex: number): Promise<(SiteAnalysis | null)[]> => {
+        return Promise.all(urls.map(async (url, batchIdx) => {
+          if (analysisAborted) return null;
+          
+          const globalIdx = startIndex + batchIdx;
           const domain = new URL(url).hostname.replace('www.', '').split('.')[0];
           const domainName = domain.charAt(0).toUpperCase() + domain.slice(1);
           const isClient = url === clientUrl;
           
-          sendLog(`\n${'='.repeat(60)}`);
-          sendLog(`[Benchmarking_Manager] Processing: ${isClient ? domainName + ' (CLIENT)' : domainName}`);
-          sendLog(`[Benchmarking_Manager] Timeouts: Scraping=${PHASE_TIMEOUTS.SCRAPING/1000}s, Agents=${PHASE_TIMEOUTS.AGENTS/1000}s`);
+          sendLog(`[Benchmarking_Manager] [${globalIdx + 1}/${allUrls.length}] Processing: ${isClient ? domainName + ' (CLIENT)' : domainName}`);
           
-          // Scraping phase WITH TIMEOUT
-          const scrapingResult = await withPhaseTimeout(
-            fetchSiteContent(url, sendLog),
-            PHASE_TIMEOUTS.SCRAPING,
-            `Scraping ${domainName}`,
-            null as any,
-            sendLog
-          );
-          
-          if (scrapingResult.timedOut || !scrapingResult.result) {
-            sendLog(`[WARNING] Scraping timeout for ${domainName}. Using fallback analysis.`);
-            const fallbackAnalysis = createFallbackAgentResults(domainName);
-            analyses.push({
+          try {
+            const scrapingResult = await withPhaseTimeout(
+              fetchSiteContent(url, sendLog),
+              PHASE_TIMEOUTS.SCRAPING,
+              `Scraping ${domainName}`,
+              null as any,
+              sendLog
+            );
+            
+            if (scrapingResult.timedOut || !scrapingResult.result) {
+              sendLog(`[WARNING] Scraping timeout for ${domainName}. Using fallback.`);
+              return {
+                name: isClient ? `${domainName} (Client)` : domainName,
+                url,
+                ...createFallbackAgentResults(domainName),
+                overall_score: 5,
+              };
+            }
+            
+            const content = scrapingResult.result;
+            const agentResult = await withPhaseTimeout(
+              runAllAgentsInParallel(content, sendLog),
+              PHASE_TIMEOUTS.AGENTS,
+              `Agent Analysis ${domainName}`,
+              createFallbackAgentResults(domainName),
+              sendLog
+            );
+            
+            const analysis = agentResult.result;
+            const overall_score = calculateOverallScore(analysis);
+            
+            sendLog(`[Benchmarking_Manager] ${domainName} complete: ${overall_score}/10`);
+            
+            return {
               name: isClient ? `${domainName} (Client)` : domainName,
               url,
-              ...fallbackAnalysis,
+              ...analysis,
+              overall_score,
+            };
+          } catch (error) {
+            const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+            sendLog(`[ERROR] Failed to analyze ${domainName}: ${errorMsg}`);
+            return {
+              name: isClient ? `${domainName} (Client)` : domainName,
+              url,
+              ...createFallbackAgentResults(domainName),
               overall_score: 5,
-            });
-            continue;
+            };
           }
-          
-          const content = scrapingResult.result;
-          sendLog(`\n[Benchmarking_Manager] Context acquired. Distributing to 4 Agents...`);
-          
-          // Run all 4 agents in parallel WITH TIMEOUT
-          const agentResult = await withPhaseTimeout(
-            runAllAgentsInParallel(content, sendLog),
-            PHASE_TIMEOUTS.AGENTS,
-            `Agent Analysis ${domainName}`,
-            createFallbackAgentResults(domainName),
-            sendLog
-          );
-          
-          const analysis = agentResult.result;
-          if (agentResult.timedOut) {
-            sendLog(`[WARNING] Agent analysis timeout for ${domainName}. Using partial/fallback data.`);
-          }
-          
-          const overall_score = calculateOverallScore(analysis);
-          
-          analyses.push({
-            name: isClient ? `${domainName} (Client)` : domainName,
-            url,
-            ...analysis,
-            overall_score,
-          });
-          
-          sendLog(`\n[Benchmarking_Manager] ${domainName} analysis complete.`);
-          sendLog(`[Benchmarking_Manager] Overall Score: ${overall_score}/10`);
-          sendLog(`  - Visual Design: ${analysis.visual_design.score}/10`);
-          sendLog(`  - UX/Navigation: ${analysis.user_experience.score}/10`);
-          sendLog(`  - Content Quality: ${analysis.content_quality.score}/10`);
-          sendLog(`  - Technical Performance: ${analysis.technical_performance.score}/10`);
-          
-        } catch (error) {
-          const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-          sendLog(`[ERROR] Failed to analyze ${url}: ${errorMsg}. Skipping.`);
-          console.error(`Stream analysis error for ${url}:`, error);
+        }));
+      };
+
+      // Process in batches
+      sendLog(`\n[Benchmarking_Manager] Processing ${allUrls.length} URLs in batches of ${BATCH_CONFIG.CONCURRENCY}...`);
+      sendLog(`[Benchmarking_Manager] Dynamic timeout: ${Math.round(dynamicTimeout/1000)}s for ${allUrls.length} URLs`);
+
+      for (let i = 0; i < allUrls.length; i += BATCH_CONFIG.CONCURRENCY) {
+        if (analysisAborted) {
+          console.log('[STREAM] Skipping remaining batches due to global timeout.');
+          break;
         }
+        
+        const batch = allUrls.slice(i, i + BATCH_CONFIG.CONCURRENCY);
+        const batchNum = Math.floor(i / BATCH_CONFIG.CONCURRENCY) + 1;
+        const totalBatches = Math.ceil(allUrls.length / BATCH_CONFIG.CONCURRENCY);
+        
+        sendLog(`\n${'='.repeat(60)}`);
+        sendLog(`[Benchmarking_Manager] Batch ${batchNum}/${totalBatches}: Processing ${batch.length} URLs in parallel...`);
+        
+        const batchResults = await processUrlBatch(batch, i);
+        const validResults = batchResults.filter((r): r is SiteAnalysis => r !== null);
+        analyses.push(...validResults);
+        
+        sendLog(`[Benchmarking_Manager] Batch ${batchNum} complete: ${validResults.length}/${batch.length} successful`);
       }
+
+      sendLog(`\n[Benchmarking_Manager] All URLs processed: ${analyses.length}/${allUrls.length} successful`);
 
       // Check if global timeout already handled the response
       if (analysisAborted) {

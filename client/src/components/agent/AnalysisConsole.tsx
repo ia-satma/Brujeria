@@ -326,6 +326,61 @@ function ReportSkeleton() {
   );
 }
 
+function SiteProcessingProgress({ logs }: { logs: string[] }) {
+  const progress = useMemo(() => {
+    for (let i = logs.length - 1; i >= 0; i--) {
+      const match = logs[i].match(/\[(\d+)\/(\d+)\]\s*Processing:/);
+      if (match) {
+        return { current: parseInt(match[1]), total: parseInt(match[2]) };
+      }
+    }
+    const countMatch = logs.find(log => log.includes("domains queued"));
+    if (countMatch) {
+      const match = countMatch.match(/(\d+)\s*domains?\s*queued/);
+      if (match) return { current: 0, total: parseInt(match[1]) };
+    }
+    return null;
+  }, [logs]);
+
+  const completedSites = useMemo(() => {
+    return logs.filter(log => {
+      if (!log.includes("[Benchmarking_Manager]")) return false;
+      if (log.includes("Council") || log.includes("consensus") || log.includes("Stage")) return false;
+      if (!log.includes("complete:") || !log.includes("/10")) return false;
+      const match = log.match(/\[Benchmarking_Manager\]\s+.+\s+complete:\s*\d+(\.\d+)?\/10/);
+      return match !== null;
+    }).length;
+  }, [logs]);
+
+  if (!progress || progress.total <= 1) return null;
+
+  const percentage = progress.total > 0 ? Math.round((completedSites / progress.total) * 100) : 0;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="p-4 rounded-lg bg-gradient-to-r from-primary/10 to-cyan-500/10 border border-primary/30"
+      data-testid="container-site-progress"
+    >
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <Database className="w-5 h-5 text-primary" />
+          <span className="font-medium text-foreground">Análisis Masivo</span>
+        </div>
+        <Badge variant="outline" className="font-mono">
+          {completedSites} / {progress.total} sitios
+        </Badge>
+      </div>
+      <Progress value={percentage} className="h-3" />
+      <div className="flex justify-between mt-2 text-xs text-muted-foreground">
+        <span>Procesando sitio {progress.current} de {progress.total}...</span>
+        <span className="font-mono">{percentage}%</span>
+      </div>
+    </motion.div>
+  );
+}
+
 function LiveMetrics({ logs }: { logs: string[] }) {
   const [elapsedTime, setElapsedTime] = useState(0);
   
@@ -408,6 +463,8 @@ export function AnalysisConsole({ logs, isProcessing, error }: AnalysisConsolePr
 
   return (
     <div className="w-full max-w-5xl mx-auto space-y-6" data-testid="container-analysis-console">
+      <SiteProcessingProgress logs={logs} />
+      
       <ProgressStages logs={logs} />
       
       <LiveMetrics logs={logs} />
