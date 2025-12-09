@@ -168,6 +168,88 @@ function generateReplitInstructions(report: Report): string {
   return md;
 }
 
+function generateTOONReport(report: Report): object {
+  const compactCategory = (cat: any) => {
+    if (!cat) return null;
+    return {
+      s: cat.score,
+      obs: cat.observations,
+      str: cat.strengths,
+      wk: cat.weaknesses,
+      sub: cat.subagent_results?.map((sr: any) => ({
+        n: sr.name,
+        s: sr.score,
+        f: sr.findings,
+      })),
+    };
+  };
+
+  const compactSite = (site: any) => ({
+    n: site.name,
+    u: site.url,
+    s: site.overall_score,
+    vd: compactCategory(site.visual_design),
+    ux: compactCategory(site.user_experience),
+    cq: compactCategory(site.content_quality),
+    tp: compactCategory(site.technical_performance),
+  });
+
+  const compactTask = (t: any) => ({
+    id: t.id,
+    p: t.priority?.replace('P', '').replace('-CRITICAL', 'C').replace('-HIGH', 'H').replace('-MEDIUM', 'M'),
+    t: t.title,
+    d: t.description,
+    i: t.expected_impact,
+    e: t.estimated_effort,
+    a: t.agent_source,
+  });
+
+  return {
+    _v: "1.0",
+    _t: "TOON",
+    _d: "Token-Optimized Object Notation - Keys: s=score, n=name, u=url, vd=visual_design, ux=user_experience, cq=content_quality, tp=technical_performance, str=strengths, wk=weaknesses, obs=observations, sub=subagents, p=priority, t=title, d=description, i=impact, e=effort, a=agent_source",
+    m: {
+      g: report.report_metadata?.generated_at,
+      c: report.report_metadata?.client_url,
+      n: report.report_metadata?.competitors_analyzed,
+      cs: report.report_metadata?.council_consensus,
+    },
+    es: report.executive_summary ? {
+      s: report.executive_summary.overall_score,
+      vs: report.executive_summary.vs_competitors,
+      ci: report.executive_summary.critical_issues,
+      ecl: report.executive_summary.estimated_conversion_loss,
+    } : null,
+    cl: compactSite(report.client_website_analysis),
+    cp: report.competitor_analyses?.map(compactSite),
+    ca: {
+      sr: report.comparative_analysis?.strengths_relative,
+      wr: report.comparative_analysis?.weaknesses_relative,
+      bp: report.comparative_analysis?.industry_best_practices,
+      tr: report.comparative_analysis?.emerging_trends,
+    },
+    rc: {
+      hp: report.recommendations?.high_priority,
+      mp: report.recommendations?.medium_priority,
+      io: report.recommendations?.innovative_opportunities,
+    },
+    tk: report.prioritized_tasks?.map(compactTask),
+    eo: report.execution_order,
+    cc: report.completion_criteria ? {
+      p0: report.completion_criteria.phase_0,
+      p1: report.completion_criteria.phase_1,
+      p2: report.completion_criteria.phase_2,
+    } : null,
+    cv: report.councilResult?.chairmanVerdict,
+    fr: report.councilResult?.finalRanking?.map((r: any) => ({
+      i: r.issue,
+      p: r.priority,
+      v: r.votes,
+      sv: r.severity,
+    })),
+  };
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express

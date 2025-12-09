@@ -30,7 +30,7 @@ interface ReportViewProps {
 }
 
 export function ReportView({ report, reportId }: ReportViewProps) {
-  const downloadFile = async (type: 'pdf' | 'json' | 'instructions') => {
+  const downloadFile = async (type: 'pdf' | 'json' | 'instructions' | 'toon') => {
     try {
       const endpoint = `/api/reports/download/${type}`;
       const response = await fetch(endpoint, {
@@ -49,6 +49,7 @@ export function ReportView({ report, reportId }: ReportViewProps) {
       a.href = url;
       a.download = type === 'pdf' ? 'benchmarking-report.pdf' 
                  : type === 'json' ? 'benchmarking-report.json' 
+                 : type === 'toon' ? 'benchmarking-report.toon.json'
                  : 'replit-instructions.md';
       document.body.appendChild(a);
       a.click();
@@ -101,6 +102,10 @@ export function ReportView({ report, reportId }: ReportViewProps) {
           <Button onClick={() => downloadFile('instructions')} variant="secondary" className="bg-accent/20 hover:bg-accent/30 text-accent-foreground flex-1 min-w-[140px] sm:flex-none" data-testid="button-download-instructions">
             <FileCode className="w-4 h-4 mr-2" />
             Instrucciones Replit
+          </Button>
+          <Button onClick={() => downloadFile('toon')} variant="ghost" className="flex-1 min-w-[100px] sm:flex-none text-muted-foreground hover:text-foreground" data-testid="button-download-toon">
+            <FileJson className="w-4 h-4 mr-2" />
+            TOON
           </Button>
         </div>
       </div>
