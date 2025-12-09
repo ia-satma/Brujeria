@@ -332,12 +332,19 @@ export async function registerRoutes(
   app.post("/api/analyze-stream", async (req, res) => {
     let keepaliveInterval: NodeJS.Timeout | null = null;
     let connectionClosed = false;
+    let globalTimeoutId: NodeJS.Timeout | null = null;
+    let analysisAborted = false;
+    
+    const GLOBAL_ANALYSIS_TIMEOUT = 180000; // 180 seconds total for entire analysis
     
     // Track when connection actually closes (for cleanup only, not for aborting)
     req.on('close', () => {
       connectionClosed = true;
       if (keepaliveInterval) {
         clearInterval(keepaliveInterval);
+      }
+      if (globalTimeoutId) {
+        clearTimeout(globalTimeoutId);
       }
       console.log('[SSE] Connection close event received');
     });
@@ -370,12 +377,110 @@ export async function registerRoutes(
       }, 10000);
 
       const sendLog: LogCallback = (message: string) => {
+        if (analysisAborted) return; // Don't log if already aborted
         const data = `data: ${JSON.stringify({ type: 'log', message })}\n\n`;
         safeWrite(data);
       };
 
       const allUrls = [clientUrl, ...competitorUrls];
       const analyses: SiteAnalysis[] = [];
+      
+      // Global timeout handler - forces completion after 180 seconds
+      const createGlobalFallbackReport = (): Report => {
+        const domain = new URL(clientUrl).hostname.replace('www.', '').split('.')[0];
+        const domainName = domain.charAt(0).toUpperCase() + domain.slice(1);
+        
+        const fallbackAnalysis: SiteAnalysis = {
+          name: `${domainName} (Client)`,
+          url: clientUrl,
+          visual_design: {
+            observations: 'Análisis no completado - timeout global',
+            strengths: ['Sitio accesible'],
+            weaknesses: ['Análisis incompleto'],
+            score: 5,
+            subagent_results: [],
+          },
+          user_experience: {
+            observations: 'UX no analizado - timeout global',
+            strengths: ['Navegación básica'],
+            weaknesses: ['Análisis incompleto'],
+            score: 5,
+            subagent_results: [],
+          },
+          content_quality: {
+            observations: 'Contenido no evaluado - timeout global',
+            strengths: ['Contenido presente'],
+            weaknesses: ['Análisis incompleto'],
+            score: 5,
+            subagent_results: [],
+          },
+          technical_performance: {
+            observations: 'Performance no medido - timeout global',
+            strengths: ['Sitio carga'],
+            weaknesses: ['Análisis incompleto'],
+            score: 5,
+            subagent_results: [],
+          },
+          overall_score: 5,
+        };
+        
+        const fallbackCouncilResult: CouncilResult = {
+          consensusScore: 0.5,
+          finalRanking: [],
+          chairmanVerdict: 'Análisis incompleto debido a timeout global de 180 segundos.',
+          dissentingOpinions: [],
+          stage1Opinions: [],
+          stage2Reviews: [],
+        };
+        
+        return {
+          report_title: "Web Benchmarking Analysis Report (Timeout)",
+          report_metadata: generateReportMetadata(clientUrl, competitorUrls.length, 0.5),
+          executive_summary: generateExecutiveSummary(5, [5], fallbackCouncilResult),
+          client_website_analysis: fallbackAnalysis,
+          competitor_analyses: competitorUrls.map((url, i) => ({
+            ...fallbackAnalysis,
+            name: `Competidor ${i + 1}`,
+            url,
+          })),
+          comparative_analysis: {
+            strengths_relative: ['Análisis no completado'],
+            weaknesses_relative: ['Timeout global alcanzado'],
+            industry_best_practices: [],
+            emerging_trends: [],
+          },
+          recommendations: {
+            high_priority: ['Re-ejecutar el análisis con menos URLs'],
+            medium_priority: [],
+            innovative_opportunities: [],
+          },
+          implementation_notes: ['Análisis no completado debido a timeout global de 180 segundos'],
+          councilResult: fallbackCouncilResult,
+          prioritized_tasks: [],
+          execution_order: [],
+          completion_criteria: generateCompletionCriteria(),
+        };
+      };
+      
+      globalTimeoutId = setTimeout(() => {
+        if (analysisAborted || res.writableEnded) return;
+        
+        analysisAborted = true;
+        console.log('[GLOBAL TIMEOUT] 180 second limit reached. Sending fallback report.');
+        
+        safeWrite(`data: ${JSON.stringify({ type: 'log', message: '\n[GLOBAL TIMEOUT] Límite de 180 segundos alcanzado. Generando reporte de emergencia...' })}\n\n`);
+        
+        const fallbackReport = createGlobalFallbackReport();
+        
+        if (keepaliveInterval) {
+          clearInterval(keepaliveInterval);
+        }
+        
+        safeWrite(`data: ${JSON.stringify({ type: 'complete', report: fallbackReport, reportId: null, timedOut: true })}\n\n`);
+        if (!res.writableEnded) {
+          res.end();
+        }
+      }, GLOBAL_ANALYSIS_TIMEOUT);
 
       sendLog(`[Benchmarking_Manager] Initializing Distributed Agent Architecture...`);
       sendLog(`[Benchmarking_Manager] Target Scope: ${allUrls.length} domains queued.`);
@@ -415,6 +520,12 @@ export async function registerRoutes(
       });
 
       for (const url of allUrls) {
+        // Skip remaining URLs if global timeout was triggered
+        if (analysisAborted) {
+          console.log('[STREAM] Skipping remaining URLs due to global timeout.');
+          break;
+        }
+        
         try {
           const domain = new URL(url).hostname.replace('www.', '').split('.')[0];
           const domainName = domain.charAt(0).toUpperCase() + domain.slice(1);
@@ -485,13 +596,24 @@ export async function registerRoutes(
         }
       }
 
+      // Check if global timeout already handled the response
+      if (analysisAborted) {
+        console.log('[STREAM] Analysis was aborted by global timeout. Skipping remaining processing.');
+        return;
+      }
+      
       if (analyses.length === 0) {
         sendLog(`[FATAL] No websites could be analyzed.`);
+        if (globalTimeoutId) {
+          clearTimeout(globalTimeoutId);
+        }
         if (keepaliveInterval) {
           clearInterval(keepaliveInterval);
         }
-        res.write(`data: ${JSON.stringify({ type: 'error', message: 'Failed to analyze any websites' })}\n\n`);
-        res.end();
+        if (!res.writableEnded) {
+          res.write(`data: ${JSON.stringify({ type: 'error', message: 'Failed to analyze any websites' })}\n\n`);
+          res.end();
+        }
         return;
       }
 
@@ -675,24 +797,36 @@ export async function registerRoutes(
         sendLog(`\n[WARNING] Report could not be saved to database. PDF download will not be available.`);
       }
 
+      // Clear global timeout since we completed successfully
+      if (globalTimeoutId) {
+        clearTimeout(globalTimeoutId);
+      }
       if (keepaliveInterval) {
         clearInterval(keepaliveInterval);
       }
       
-      res.write(`data: ${JSON.stringify({ type: 'complete', report: serializedReport, reportId: savedReportId })}\n\n`);
-      res.end();
+      // Don't send if global timeout already handled response
+      if (!analysisAborted && !res.writableEnded) {
+        res.write(`data: ${JSON.stringify({ type: 'complete', report: serializedReport, reportId: savedReportId })}\n\n`);
+        res.end();
+      }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       const errorStack = error instanceof Error ? error.stack : '';
       console.error("Stream analysis error:", errorMessage);
       console.error("Error stack:", errorStack);
       
+      // Clear global timeout 
+      if (globalTimeoutId) {
+        clearTimeout(globalTimeoutId);
+      }
       if (keepaliveInterval) {
         clearInterval(keepaliveInterval);
       }
       
-      safeWrite(`data: ${JSON.stringify({ type: 'error', message: `Analysis failed: ${errorMessage}` })}\n\n`);
-      if (!res.writableEnded) {
+      // Don't send error if global timeout already handled response
+      if (!analysisAborted && !res.writableEnded) {
+        safeWrite(`data: ${JSON.stringify({ type: 'error', message: `Analysis failed: ${errorMessage}` })}\n\n`);
         res.end();
       }
     }
