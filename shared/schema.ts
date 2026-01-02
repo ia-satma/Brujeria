@@ -7,6 +7,7 @@ export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
+  tenantId: text("tenant_id").notNull().default("legacy_tenant_default"),
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({
@@ -23,6 +24,7 @@ export const analysisReports = pgTable("analysis_reports", {
   competitorUrls: json("competitor_urls").$type<string[]>().notNull(),
   reportData: json("report_data").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  tenantId: text("tenant_id").notNull().default("legacy_tenant_default"),
 });
 
 export const insertAnalysisReportSchema = createInsertSchema(analysisReports).omit({
@@ -47,6 +49,7 @@ export const agentKnowledgeDocuments = pgTable("agent_knowledge_documents", {
   version: integer("version").notNull().default(1),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  tenantId: text("tenant_id").notNull().default("legacy_tenant_default"),
 });
 
 export const insertAgentKnowledgeDocumentSchema = createInsertSchema(agentKnowledgeDocuments).omit({
@@ -74,6 +77,7 @@ export const agentStates = pgTable("agent_states", {
   }>(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  tenantId: text("tenant_id").notNull().default("legacy_tenant_default"),
 });
 
 export const insertAgentStateSchema = createInsertSchema(agentStates).omit({
@@ -93,6 +97,7 @@ export const agentLearningEvents = pgTable("agent_learning_events", {
   metadata: json("metadata").$type<Record<string, unknown>>(),
   sourceDocumentId: text("source_document_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  tenantId: text("tenant_id").notNull().default("legacy_tenant_default"),
 });
 
 export const insertAgentLearningEventSchema = createInsertSchema(agentLearningEvents).omit({
@@ -125,6 +130,7 @@ export const goldenDatasetSites = pgTable("golden_dataset_sites", {
   enabled: integer("enabled").notNull().default(1),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  tenantId: text("tenant_id").notNull().default("legacy_tenant_default"),
 });
 
 export const insertGoldenDatasetSiteSchema = createInsertSchema(goldenDatasetSites).omit({
@@ -146,6 +152,7 @@ export const validationRuns = pgTable("validation_runs", {
   initiatedBy: text("initiated_by"),
   executedAt: timestamp("executed_at").defaultNow().notNull(),
   completedAt: timestamp("completed_at"),
+  tenantId: text("tenant_id").notNull().default("legacy_tenant_default"),
 });
 
 export const insertValidationRunSchema = createInsertSchema(validationRuns).omit({
@@ -170,6 +177,7 @@ export const validationResults = pgTable("validation_results", {
   passed: integer("passed").notNull(),
   deviation: real("deviation").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  tenantId: text("tenant_id").notNull().default("legacy_tenant_default"),
 });
 
 export const insertValidationResultSchema = createInsertSchema(validationResults).omit({
@@ -179,3 +187,20 @@ export const insertValidationResultSchema = createInsertSchema(validationResults
 
 export type InsertValidationResult = z.infer<typeof insertValidationResultSchema>;
 export type ValidationResult = typeof validationResults.$inferSelect;
+
+// TSIP/1.0: New Agents table with strict UUID and RLS support
+export const agents = pgTable("agents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").notNull(),
+  name: text("name").notNull(),
+  config: json("config").default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertAgentSchema = createInsertSchema(agents).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertAgent = z.infer<typeof insertAgentSchema>;
+export type Agent = typeof agents.$inferSelect;

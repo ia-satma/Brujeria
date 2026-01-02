@@ -1,0 +1,19 @@
+# .agent/rules - Protocolo TSIP/1.0 (Nivel: CRÍTICO)
+
+## 1. Seguridad de Datos & RLS (Neon)
+- **PROHIBIDO** realizar consultas SQL sin una cláusula `WHERE tenant_id = ...` explícita o sin usar la función `withTenantContext`.
+- **PROHIBIDO** usar la cadena de conexión `neondb_owner` para la lógica de la aplicación. Solo se permite para migraciones DDL.
+- **OBLIGATORIO**: Todas las tablas nuevas deben tener `tenant_id` y RLS habilitado (`ENABLE ROW LEVEL SECURITY`).
+
+## 2. Integridad del Sistema (Aegis)
+- **PROHIBIDO** ejecutar comandos destructivos de sistema de archivos (`rm -rf`, `mkfs`, `dd`) sin aprobación humana explícita (HITL).
+- **OBLIGATORIO**: Si el agente encuentra un error recurrente (>3 intentos), debe escribir el archivo `STOP_AGENT_FLAG` y detenerse.
+
+## 3. Arquitectura Frontend (FSD)
+- Seguir estrictamente Feature-Sliced Design: `app/` -> `pages/` -> `widgets/` -> `features/` -> `entities/` -> `shared/`.
+- No importar desde capas superiores a inferiores (ej: `shared` no puede importar `features`).
+
+## 4. Gestión de Secretos
+- **NUNCA** imprimir claves de API o secretos en la consola o logs.
+- Usar `process.env` para todas las credenciales.
+
